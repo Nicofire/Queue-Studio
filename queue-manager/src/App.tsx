@@ -1,11 +1,23 @@
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import './App.css'
 
 import { TabBar } from './components/TabBar'
 import { tabs, type TabName } from './components/tabs'
+import { EditorPage } from './pages/EditorPage'
+import { ListViewPage } from './pages/ListViewPage'
+import { SettingsPage } from './pages/SettingsPage'
+import { TileViewPage } from './pages/TileViewPage'
+
+const pageByTab = {
+  'List View': ListViewPage,
+  'Tile View': TileViewPage,
+  Editor: EditorPage,
+  Settings: SettingsPage,
+} as const satisfies Record<TabName, () => ReactElement>
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabName>('List View')
+  const ActivePage = pageByTab[activeTab]
 
   return (
     <main className="app-shell">
@@ -14,18 +26,8 @@ function App() {
       </header>
 
       <section className="workspace" aria-live="polite">
-        <div
-          className="workspace-panel"
-          role="tabpanel"
-          id={`${activeTab.toLowerCase().replace(/\s+/g, '-')}-panel`}
-          aria-labelledby={`${activeTab.toLowerCase().replace(/\s+/g, '-')}-tab`}
-        >
-          <p className="panel-label">{activeTab}</p>
-          <h2>Bereich wird als Nächstes aufgebaut</h2>
-          <p className="subtitle">
-            Hier kommt später die erste echte {activeTab.toLowerCase()}-Ansicht
-            für den Queue Manager hin.
-          </p>
+        <div className="workspace-panel">
+          <ActivePage />
         </div>
       </section>
     </main>
