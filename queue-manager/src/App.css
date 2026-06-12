@@ -90,6 +90,177 @@
   color: var(--text);
 }
 
+.settings-page {
+  display: grid;
+  gap: 24px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-header {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-grid.two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preset-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.preset-card h3 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 1.1rem;
+}
+
+.field-group {
+  display: grid;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.text-input,
+.text-area {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--text-h);
+  padding: 12px 14px;
+  border-radius: 0;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+:root[data-theme='dark'] .text-input,
+:root[data-theme='dark'] .text-area,
+:root[data-theme='dark'] .preset-card,
+:root[data-theme='dark'] .workspace-panel,
+:root[data-theme='dark'] .tab-list,
+:root[data-theme='dark'] .primary-button,
+:root[data-theme='dark'] .secondary-button,
+:root[data-theme='dark'] .toggle-button {
+  background: rgba(15, 23, 42, 0.92);
+  color: var(--text-h);
+}
+
+:root[data-theme='dark'] .text-input,
+:root[data-theme='dark'] .text-area,
+:root[data-theme='dark'] .preset-card,
+:root[data-theme='dark'] .workspace-panel,
+:root[data-theme='dark'] .tab-list,
+:root[data-theme='dark'] .secondary-button,
+:root[data-theme='dark'] .toggle-button {
+  border-color: var(--border);
+}
+
+:root[data-theme='dark'] .secondary-button:hover,
+:root[data-theme='dark'] .toggle-button:hover {
+  background: rgba(96, 165, 250, 0.08);
+}
+
+.text-input:focus,
+.text-area:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.text-area {
+  resize: vertical;
+  min-height: 180px;
+}
+
+.inline-actions,
+.seed-row,
+.card-actions,
+.theme-switcher {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.seed-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.seed-input {
+  max-width: 180px;
+}
+
+.primary-button,
+.secondary-button,
+.toggle-button {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--text-h);
+  padding: 11px 14px;
+  border-radius: 0;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.primary-button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.primary-button:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.secondary-button:hover,
+.toggle-button:hover {
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.toggle-button.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.field-hint.is-error {
+  color: var(--danger);
+}
+
 @media (max-width: 640px) {
   .app-shell {
     padding: 0;
@@ -116,6 +287,23 @@
   .workspace-panel {
     padding: 24px;
     border-radius: 20px;
+  }
+
+  .settings-grid.two-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-card {
+    padding: 16px;
+  }
+
+  .inline-actions,
+  .seed-row {
+    flex-direction: column;
+  }
+
+  .seed-input {
+    max-width: none;
   }
 
   .subtitle {
