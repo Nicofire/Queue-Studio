@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import './App.css'
 
-const tabs = ['List View', 'Tile View', 'Editor', 'Settings'] as const
-
-type TabName = (typeof tabs)[number]
+import { TabBar } from './components/TabBar'
+import { tabs, type TabName } from './components/tabs'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabName>('List View')
@@ -11,26 +10,7 @@ function App() {
   return (
     <main className="app-shell">
       <header className="top-bar" aria-label="Main navigation tabs">
-        <nav className="tab-list" role="tablist" aria-label="Queue manager views">
-          {tabs.map((tab) => {
-            const isActive = tab === activeTab
-
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={`${tab.toLowerCase().replace(/\s+/g, '-')}-panel`}
-                id={`${tab.toLowerCase().replace(/\s+/g, '-')}-tab`}
-                className={isActive ? 'tab-button is-active' : 'tab-button'}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            )
-          })}
-        </nav>
+        <TabBar activeTab={activeTab} tabs={tabs} onTabChange={setActiveTab} />
       </header>
 
       <section className="workspace" aria-live="polite">
