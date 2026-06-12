@@ -1,73 +1,109 @@
-# React + TypeScript + Vite
+# Stable Diffusion Queue Manager Webapp
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Overview
 
-Currently, two official plugins are available:
+This project is the new frontend for the Stable Diffusion Queue Manager. It is being rewritten as a React + Vite + TypeScript web app so the old Python GUI can be replaced with a modern browser-based interface.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The long-term goal is to keep the queue-management logic, template workflow, and generation controls from the original desktop app, but present them through a cleaner and more maintainable web UI.
 
-## React Compiler
+## Current Status
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The project currently contains a minimal starter page. It serves as the first foundation for the new UI and replaces the default Vite demo screen.
 
-## Expanding the ESLint configuration
+Planned areas for the web app include:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- queue management for Stable Diffusion generations
+- template browsing and editing
+- prompt and seed controls
+- model and preset management
+- progress tracking and ETA display
+- workspace state persistence
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Original Desktop App
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+The previous Python implementation is preserved in `old_queue_manager_python/Stable-Diffusion-Queue-Manager/` for reference.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+That version included:
+
+- queue control with start, pause, and abort actions
+- template system for characters, objects, scenes, and animals
+- metadata-aware image import
+- model presets and prompt presets
+- UI state saving
+- keyboard shortcuts for faster workflow
+
+## Tech Stack
+
+- React 19
+- Vite
+- TypeScript
+- ESLint
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18 or newer
+- npm
+- A modern browser
+
+If you want to connect the frontend to Stable Diffusion later, you will also need a local AUTOMATIC1111 WebUI instance.
+
+### Install
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+## Project Structure
+
+```text
+queue-manager/
+├── public/
+├── src/
+│   ├── App.tsx
+│   ├── App.css
+│   ├── index.css
+│   └── main.tsx
+├── index.html
+├── package.json
+└── vite.config.ts
+```
+
+## Next Steps
+
+The next sensible step is to split the app into a small layout structure and then implement the first real queue-manager screen.
+
+Suggested order:
+
+1. Create a shared app layout with header, sidebar, and content area.
+2. Add the first empty queue page as the main workspace.
+3. Start porting the old Python features piece by piece.
+
+## License
+
+This project follows the license of the main repository.
