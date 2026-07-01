@@ -1,4 +1,8 @@
-import type { GenerationSettings, PromptPresetGroup } from './settingsTypes'
+import type {
+  GenerationSettings,
+  PersistedGenerationSettings,
+  PromptPresetGroup,
+} from './settingsTypes'
 
 export const STORAGE_KEYS = {
   positivePresets: 'queue-manager.positive-presets',
@@ -37,4 +41,15 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   model: '',
   seed: -1,
   theme: 'light',
+}
+
+export const DEFAULT_PERSISTED_GENERATION_SETTINGS: PersistedGenerationSettings = {
+  connection: {
+    apiUrl: DEFAULT_GENERATION_SETTINGS.apiUrl,
+    model: DEFAULT_GENERATION_SETTINGS.model,
+    seed: DEFAULT_GENERATION_SETTINGS.seed,
+  },
+  generic: {
+    theme: DEFAULT_GENERATION_SETTINGS.theme,
+  },
 }

@@ -8,7 +8,11 @@ import {
   REMOTE_JSON_PATHS,
   STORAGE_KEYS,
 } from './SettingsPageComponents/settingsConfig'
-import { fetchJson, readStoredJson } from './SettingsPageComponents/settingsApi'
+import {
+  fetchJson,
+  fromPersistedGenerationSettings,
+  readStoredJson,
+} from './SettingsPageComponents/settingsApi'
 import { PromptPresetsSection } from './SettingsPageComponents/PromptPresetsSection'
 import type { GenerationSettings, PromptPresetGroup } from './SettingsPageComponents/settingsTypes'
 
@@ -34,11 +38,16 @@ export function SettingsPage() {
         readStoredJson<GenerationSettings>(STORAGE_KEYS.generationSettings),
       ]
 
-      const [remotePositivePresets, remoteNegativePresets, remoteGenerationSettings] = await Promise.all([
+      const [remotePositivePresets, remoteNegativePresets, remoteGenerationSettingsRaw] = await Promise.all([
         fetchJson<PromptPresetGroup>(REMOTE_JSON_PATHS.positivePresets, DEFAULT_POSITIVE_PRESETS),
         fetchJson<PromptPresetGroup>(REMOTE_JSON_PATHS.negativePresets, DEFAULT_NEGATIVE_PRESETS),
-        fetchJson<GenerationSettings>(REMOTE_JSON_PATHS.generationSettings, DEFAULT_GENERATION_SETTINGS),
+        fetchJson<unknown>(REMOTE_JSON_PATHS.generationSettings, null),
       ])
+
+      const remoteGenerationSettings = fromPersistedGenerationSettings(
+        remoteGenerationSettingsRaw,
+        DEFAULT_GENERATION_SETTINGS,
+      )
 
       const nextPositivePresets = remotePositivePresets ?? storedPositivePresets ?? DEFAULT_POSITIVE_PRESETS
       const nextNegativePresets = remoteNegativePresets ?? storedNegativePresets ?? DEFAULT_NEGATIVE_PRESETS

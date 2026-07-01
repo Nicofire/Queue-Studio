@@ -2,8 +2,22 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useState } from 'react'
 
 import { REMOTE_JSON_PATHS } from './settingsConfig'
-import { downloadJsonFile, fetchModelsViaProxy, normalizeApiUrl, saveJsonToProject } from './settingsApi'
-import type { GenerationSettings, SaveStatusHandlers } from './settingsTypes'
+import {
+  downloadJsonFile,
+  fetchJson,
+  fetchModelsViaProxy,
+  fromPersistedGenerationSettings,
+  normalizeApiUrl,
+  saveJsonToProject,
+  toPersistedGenerationSettings,
+} from './settingsApi'
+import type {
+  ConnectionSettings,
+  GenerationSettings,
+  GenericSettings,
+  PersistedGenerationSettings,
+  SaveStatusHandlers,
+} from './settingsTypes'
 
 type Automatic1111ConnectionSectionProps = SaveStatusHandlers & {
   generationSettings: GenerationSettings
@@ -26,6 +40,41 @@ export function Automatic1111ConnectionSection({
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [connectionResult, setConnectionResult] = useState<string | null>(null)
   const [connectionError, setConnectionError] = useState(false)
+
+  function buildFallbackPersistedSettings(): PersistedGenerationSettings {
+    return toPersistedGenerationSettings(generationSettings)
+  }
+
+  async function readPersistedSettingsSnapshot() {
+    const payload = await fetchJson<unknown>(REMOTE_JSON_PATHS.generationSettings, null)
+    const normalized = fromPersistedGenerationSettings(payload, generationSettings)
+    return toPersistedGenerationSettings(normalized)
+  }
+
+  function saveGenerationSettings(
+    nextSettings: GenerationSettings,
+    updateSection: (current: PersistedGenerationSettings) => PersistedGenerationSettings,
+    successMessage: string,
+  ) {
+    void (async () => {
+      try {
+        const snapshot = await readPersistedSettingsSnapshot()
+        const nextPayload = updateSection(snapshot)
+        await saveJsonToProject(REMOTE_JSON_PATHS.generationSettings, nextPayload)
+        setGenerationSettings(nextSettings)
+        setSaveResult(successMessage)
+        setSaveError(false)
+      } catch (error) {
+        setSaveResult(
+          error instanceof Error
+            ? `${successMessage} fehlgeschlagen: ${error.message}`
+            : `${successMessage} fehlgeschlagen.`,
+        )
+        setSaveError(true)
+        downloadJsonFile('settings.json', buildFallbackPersistedSettings())
+      }
+    })()
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -73,7 +122,8 @@ export function Automatic1111ConnectionSection({
   }, [generationSettings.apiUrl, setGenerationSettings])
 
   return (
-    <section className="settings-section">
+    <>
+      <section className="settings-section">
       <div className="settings-header">
         <p className="panel-label">Generation settings</p>
         <h2>Automatic1111 connection</h2>
@@ -95,35 +145,6 @@ export function Automatic1111ConnectionSection({
               }
               placeholder="http://127.0.0.1:7860"
             />
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                const nextSettings = {
-                  ...generationSettings,
-                  apiUrl: generationSettings.apiUrl.trim(),
-                }
-
-                setGenerationSettings(nextSettings)
-                void (async () => {
-                  try {
-                    await saveJsonToProject(REMOTE_JSON_PATHS.generationSettings, nextSettings)
-                    setSaveResult('Settings wurden im Projektordner gespeichert.')
-                    setSaveError(false)
-                  } catch (error) {
-                    setSaveResult(
-                      error instanceof Error
-                        ? `Settings konnten nicht gespeichert werden: ${error.message}`
-                        : 'Settings konnten nicht gespeichert werden.',
-                    )
-                    setSaveError(true)
-                    downloadJsonFile('settings.json', nextSettings)
-                  }
-                })()
-              }}
-            >
-              Save settings
-            </button>
             <button
               type="button"
               className="secondary-button"
@@ -165,11 +186,6 @@ export function Automatic1111ConnectionSection({
           {connectionResult ? (
             <p className={`field-hint ${connectionError ? 'is-error' : 'is-success'}`}>
               {connectionResult}
-            </p>
-          ) : null}
-          {saveResult ? (
-            <p className={`field-hint ${saveError ? 'is-error' : 'is-success'}`}>
-              {saveResult}
             </p>
           ) : null}
         </label>
@@ -240,9 +256,51 @@ export function Automatic1111ConnectionSection({
             </button>
           </div>
           <p className="field-hint">-1 means random seed in Automatic1111.</p>
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                const nextSettings = {
+                  ...generationSettings,
+                  apiUrl: generationSettings.apiUrl.trim(),
+                }
+
+                const nextConnection: ConnectionSettings = {
+                  apiUrl: nextSettings.apiUrl,
+                  model: nextSettings.model,
+                  seed: nextSettings.seed,
+                }
+
+                saveGenerationSettings(
+                  nextSettings,
+                  (current) => ({
+                    ...current,
+                    connection: nextConnection,
+                  }),
+                  'Connection settings wurden im Projektordner gespeichert.',
+                )
+              }}
+            >
+              Save connection settings
+            </button>
+          </div>
+          {saveResult ? (
+            <p className={`field-hint ${saveError ? 'is-error' : 'is-success'}`}>
+              {saveResult}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </section>
+
+      <section className="settings-section">
+        <div className="settings-header">
+          <p className="panel-label">Settings</p>
+          <h2>Generic settings</h2>
         </div>
 
-        <div className="settings-grid theme-row">
+        <div className="settings-grid">
           <div className="field-group">
             <span className="field-label">Theme</span>
             <div className="theme-switcher" role="group" aria-label="Theme switcher">
@@ -271,10 +329,42 @@ export function Automatic1111ConnectionSection({
                 Dark
               </button>
             </div>
-            <p className="field-hint">Theme preference is stored in config.json.</p>
+            <p className="field-hint">Theme preference is stored in settings.json.</p>
+            <div className="inline-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  const nextSettings = {
+                    ...generationSettings,
+                    apiUrl: generationSettings.apiUrl.trim(),
+                  }
+
+                  const nextGeneric: GenericSettings = {
+                    theme: nextSettings.theme,
+                  }
+
+                  saveGenerationSettings(
+                    nextSettings,
+                    (current) => ({
+                      ...current,
+                      generic: nextGeneric,
+                    }),
+                    'Generic settings wurden im Projektordner gespeichert.',
+                  )
+                }}
+              >
+                Save generic settings
+              </button>
+            </div>
+            {saveResult ? (
+              <p className={`field-hint ${saveError ? 'is-error' : 'is-success'}`}>
+                {saveResult}
+              </p>
+            ) : null}
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   )
 }

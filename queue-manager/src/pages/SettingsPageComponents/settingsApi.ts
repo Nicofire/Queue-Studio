@@ -1,4 +1,8 @@
 import { MODEL_PROXY_PATH } from './settingsConfig'
+import type {
+  GenerationSettings,
+  PersistedGenerationSettings,
+} from './settingsTypes'
 
 export function readStoredJson<T>(key: string): T | undefined {
   const storedValue = localStorage.getItem(key)
@@ -80,5 +84,62 @@ export async function saveJsonToProject(path: string, payload: unknown): Promise
 
   if (!response.ok) {
     throw new Error(`Save failed with status ${response.status}`)
+  }
+}
+
+export function toPersistedGenerationSettings(
+  settings: GenerationSettings,
+): PersistedGenerationSettings {
+  return {
+    connection: {
+      apiUrl: settings.apiUrl,
+      model: settings.model,
+      seed: settings.seed,
+    },
+    generic: {
+      theme: settings.theme,
+    },
+  }
+}
+
+export function fromPersistedGenerationSettings(
+  payload: unknown,
+  fallback: GenerationSettings,
+): GenerationSettings {
+  const safe = payload as
+    | {
+        connection?: {
+          apiUrl?: unknown
+          model?: unknown
+          seed?: unknown
+        }
+        generic?: {
+          theme?: unknown
+        }
+        apiUrl?: unknown
+        model?: unknown
+        seed?: unknown
+        theme?: unknown
+      }
+    | undefined
+
+  const hasSplitShape = Boolean(safe?.connection || safe?.generic)
+
+  if (hasSplitShape) {
+    const rawTheme = safe?.generic?.theme
+    return {
+      apiUrl: typeof safe?.connection?.apiUrl === 'string' ? safe.connection.apiUrl : fallback.apiUrl,
+      model: typeof safe?.connection?.model === 'string' ? safe.connection.model : fallback.model,
+      seed: typeof safe?.connection?.seed === 'number' ? safe.connection.seed : fallback.seed,
+      theme: rawTheme === 'dark' || rawTheme === 'light' ? rawTheme : fallback.theme,
+    }
+  }
+
+  const rawTheme = safe?.theme
+  return {
+    apiUrl: typeof safe?.apiUrl === 'string' ? safe.apiUrl : fallback.apiUrl,
+    model: typeof safe?.model === 'string' ? safe.model : fallback.model,
+    seed: typeof safe?.seed === 'number' ? safe.seed : fallback.seed,
+    theme: rawTheme === 'dark' || rawTheme === 'light' ? rawTheme : fallback.theme,
   }
 }
