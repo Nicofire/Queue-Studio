@@ -44,16 +44,35 @@ const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
 }
 
 const MODEL_REQUEST_PATH = '/sdapi/v1/sd-models'
+const REMOTE_JSON_PATHS = {
+  positivePresets: '/positive-presets.json',
+  negativePresets: '/negative-presets.json',
+  generationSettings: '/settings.json',
+} as const
 
-function readJson<T>(key: string, fallback: T): T {
+function readStoredJson<T>(key: string): T | undefined {
   const storedValue = localStorage.getItem(key)
 
   if (!storedValue) {
-    return fallback
+    return undefined
   }
 
   try {
     return JSON.parse(storedValue) as T
+  } catch {
+    return undefined
+  }
+}
+
+async function fetchJson<T>(path: string, fallback: T): Promise<T> {
+  try {
+    const response = await fetch(path)
+
+    if (!response.ok) {
+      return fallback
+    }
+
+    return (await response.json()) as T
   } catch {
     return fallback
   }
@@ -63,19 +82,37 @@ function normalizeApiUrl(apiUrl: string) {
   return apiUrl.trim().replace(/\/$/, '')
 }
 
+function downloadJsonFile(fileName: string, payload: unknown) {
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
+    type: 'application/json',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = fileName
+  link.click()
+
+  URL.revokeObjectURL(url)
+}
+
 export function SettingsPage() {
   const [positivePresetGroup, setPositivePresetGroup] = useState<PromptPresetGroup>(
-    () => readJson(STORAGE_KEYS.positivePresets, DEFAULT_POSITIVE_PRESETS),
+    DEFAULT_POSITIVE_PRESETS,
   )
   const [negativePresetGroup, setNegativePresetGroup] = useState<PromptPresetGroup>(
-    () => readJson(STORAGE_KEYS.negativePresets, DEFAULT_NEGATIVE_PRESETS),
+    DEFAULT_NEGATIVE_PRESETS,
   )
   const [generationSettings, setGenerationSettings] = useState<GenerationSettings>(
-    () => readJson(STORAGE_KEYS.generationSettings, DEFAULT_GENERATION_SETTINGS),
+    DEFAULT_GENERATION_SETTINGS,
   )
   const [modelOptions, setModelOptions] = useState<string[]>([])
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [modelError, setModelError] = useState<string | null>(null)
+  const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [connectionResult, setConnectionResult] = useState<string | null>(null)
+  const [connectionError, setConnectionError] = useState(false)
+  const [hasHydratedSettings, setHasHydratedSettings] = useState(false)
   const [positiveDraft, setPositiveDraft] = useState(
     positivePresetGroup.presets[positivePresetGroup.selectedPreset],
   )
@@ -93,25 +130,70 @@ export function SettingsPage() {
   )
 
   useEffect(() => {
+    void (async () => {
+      const [storedPositivePresets, storedNegativePresets, storedGenerationSettings] = [
+        readStoredJson<PromptPresetGroup>(STORAGE_KEYS.positivePresets),
+        readStoredJson<PromptPresetGroup>(STORAGE_KEYS.negativePresets),
+        readStoredJson<GenerationSettings>(STORAGE_KEYS.generationSettings),
+      ]
+
+      const [remotePositivePresets, remoteNegativePresets, remoteGenerationSettings] = await Promise.all([
+        fetchJson<PromptPresetGroup>(REMOTE_JSON_PATHS.positivePresets, DEFAULT_POSITIVE_PRESETS),
+        fetchJson<PromptPresetGroup>(REMOTE_JSON_PATHS.negativePresets, DEFAULT_NEGATIVE_PRESETS),
+        fetchJson<GenerationSettings>(REMOTE_JSON_PATHS.generationSettings, DEFAULT_GENERATION_SETTINGS),
+      ])
+
+      const nextPositivePresets = storedPositivePresets ?? remotePositivePresets
+      const nextNegativePresets = storedNegativePresets ?? remoteNegativePresets
+      const nextGenerationSettings = storedGenerationSettings ?? remoteGenerationSettings
+
+      setPositivePresetGroup(nextPositivePresets)
+      setNegativePresetGroup(nextNegativePresets)
+      setGenerationSettings(nextGenerationSettings)
+      setHasHydratedSettings(true)
+    })()
+  }, [])
+
+  useEffect(() => {
+    setPositiveDraft(positivePresetGroup.presets[positivePresetGroup.selectedPreset] ?? '')
+  }, [positivePresetGroup.presets, positivePresetGroup.selectedPreset])
+
+  useEffect(() => {
+    setNegativeDraft(negativePresetGroup.presets[negativePresetGroup.selectedPreset] ?? '')
+  }, [negativePresetGroup.presets, negativePresetGroup.selectedPreset])
+
+  useEffect(() => {
+    if (!hasHydratedSettings) {
+      return
+    }
+
     localStorage.setItem(
       STORAGE_KEYS.positivePresets,
       JSON.stringify(positivePresetGroup),
     )
-  }, [positivePresetGroup])
+  }, [hasHydratedSettings, positivePresetGroup])
 
   useEffect(() => {
+    if (!hasHydratedSettings) {
+      return
+    }
+
     localStorage.setItem(
       STORAGE_KEYS.negativePresets,
       JSON.stringify(negativePresetGroup),
     )
-  }, [negativePresetGroup])
+  }, [hasHydratedSettings, negativePresetGroup])
 
   useEffect(() => {
+    if (!hasHydratedSettings) {
+      return
+    }
+
     localStorage.setItem(
       STORAGE_KEYS.generationSettings,
       JSON.stringify(generationSettings),
     )
-  }, [generationSettings])
+  }, [hasHydratedSettings, generationSettings])
 
   useEffect(() => {
     document.documentElement.dataset.theme = generationSettings.theme
@@ -178,6 +260,10 @@ export function SettingsPage() {
           <p className="panel-label">Settings</p>
           <h2>Prompt presets</h2>
         </div>
+        <p className="subtitle">
+          Die JSON-Dateien aus `public/` werden beim Start geladen. Speichern exportiert die aktuelle
+          Version als Download.
+        </p>
 
         <div className="settings-grid two-columns">
           <PromptPresetEditor
@@ -186,27 +272,24 @@ export function SettingsPage() {
             selectedPreset={positivePresetGroup.selectedPreset}
             value={positiveDraft}
             onPresetChange={(presetName) =>
-              setPositivePresetGroup((current) => {
-                const nextPresetValue = current.presets[presetName] ?? ''
-
-                setPositiveDraft(nextPresetValue)
-
-                return {
-                  ...current,
-                  selectedPreset: presetName,
-                }
-              })
-            }
-            onValueChange={setPositiveDraft}
-            onSave={() =>
               setPositivePresetGroup((current) => ({
                 ...current,
-                presets: {
-                  ...current.presets,
-                  [current.selectedPreset]: positiveDraft,
-                },
+                selectedPreset: presetName,
               }))
             }
+            onValueChange={setPositiveDraft}
+            onSave={() => {
+              const nextPresetGroup = {
+                ...positivePresetGroup,
+                presets: {
+                  ...positivePresetGroup.presets,
+                  [positivePresetGroup.selectedPreset]: positiveDraft,
+                },
+              }
+
+              setPositivePresetGroup(nextPresetGroup)
+              downloadJsonFile('positive-presets.json', nextPresetGroup)
+            }}
           />
 
           <PromptPresetEditor
@@ -215,27 +298,24 @@ export function SettingsPage() {
             selectedPreset={negativePresetGroup.selectedPreset}
             value={negativeDraft}
             onPresetChange={(presetName) =>
-              setNegativePresetGroup((current) => {
-                const nextPresetValue = current.presets[presetName] ?? ''
-
-                setNegativeDraft(nextPresetValue)
-
-                return {
-                  ...current,
-                  selectedPreset: presetName,
-                }
-              })
-            }
-            onValueChange={setNegativeDraft}
-            onSave={() =>
               setNegativePresetGroup((current) => ({
                 ...current,
-                presets: {
-                  ...current.presets,
-                  [current.selectedPreset]: negativeDraft,
-                },
+                selectedPreset: presetName,
               }))
             }
+            onValueChange={setNegativeDraft}
+            onSave={() => {
+              const nextPresetGroup = {
+                ...negativePresetGroup,
+                presets: {
+                  ...negativePresetGroup.presets,
+                  [negativePresetGroup.selectedPreset]: negativeDraft,
+                },
+              }
+
+              setNegativePresetGroup(nextPresetGroup)
+              downloadJsonFile('negative-presets.json', nextPresetGroup)
+            }}
           />
         </div>
       </section>
@@ -265,16 +345,60 @@ export function SettingsPage() {
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() =>
-                  setGenerationSettings((current) => ({
-                    ...current,
-                    apiUrl: current.apiUrl.trim(),
-                  }))
-                }
+                onClick={() => {
+                  const nextSettings = {
+                    ...generationSettings,
+                    apiUrl: generationSettings.apiUrl.trim(),
+                  }
+
+                  setGenerationSettings(nextSettings)
+                  downloadJsonFile('settings.json', nextSettings)
+                }}
               >
                 Save URL
               </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={async () => {
+                  setIsTestingConnection(true)
+                  setConnectionResult(null)
+                  setConnectionError(false)
+
+                  const url = normalizeApiUrl(generationSettings.apiUrl)
+                  if (!url) {
+                    setConnectionResult('Please enter an API URL first.')
+                    setConnectionError(true)
+                    setIsTestingConnection(false)
+                    return
+                  }
+
+                  try {
+                    const resp = await fetch(`${url}${MODEL_REQUEST_PATH}`)
+                    if (!resp.ok) {
+                      throw new Error(`Status ${resp.status}`)
+                    }
+                    setConnectionResult('Connection OK — models endpoint reachable.')
+                    setConnectionError(false)
+                  } catch (err) {
+                    setConnectionResult(
+                      err instanceof Error ? `Connection failed: ${err.message}` : 'Connection failed',
+                    )
+                    setConnectionError(true)
+                  } finally {
+                    setIsTestingConnection(false)
+                  }
+                }}
+                disabled={isTestingConnection}
+              >
+                {isTestingConnection ? 'Testing…' : 'Test Connection'}
+              </button>
             </div>
+            {connectionResult ? (
+              <p className={`field-hint ${connectionError ? 'is-error' : 'is-success'}`}>
+                {connectionResult}
+              </p>
+            ) : null}
           </label>
 
           <label className="field-group">
@@ -434,6 +558,7 @@ function PromptPresetEditor({
         <button type="button" className="primary-button" onClick={onSave}>
           Save preset
         </button>
+        <p className="field-hint">Speichert im Browser und lädt die passende JSON-Datei herunter.</p>
       </div>
     </div>
   )

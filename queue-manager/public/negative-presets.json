@@ -1,0 +1,8 @@
+{
+  "selectedPreset": "Default Negative",
+  "presets": {
+    "Default Negative": "low quality, blurry, noisy, watermark, text, cropped",
+    "Anime": "bad anatomy, extra fingers, deformed hands, low detail",
+    "Photo": "motion blur, overexposed, underexposed, bad framing"
+  }
+}
