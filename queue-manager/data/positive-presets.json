@@ -1,0 +1,9 @@
+{
+  "selectedPreset": "Portrait",
+  "presets": {
+    "Default Positive": "high quality, detailed, sharp focus, best composition",
+    "Cinematic": "cinematic lighting, dramatic scene, film still, rich contrast",
+    "Portrait": "portrait, soft lighting, natural skin tones, clear facial details, test",
+    "Nature": "nature, vibrant colors, detailed textures, realistic lighting"
+  }
+}

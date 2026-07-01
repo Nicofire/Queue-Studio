@@ -45,9 +45,9 @@ const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
 
 const MODEL_REQUEST_PATH = '/sdapi/v1/sd-models'
 const REMOTE_JSON_PATHS = {
-  positivePresets: '/positive-presets.json',
-  negativePresets: '/negative-presets.json',
-  generationSettings: '/settings.json',
+  positivePresets: '/api/config/positive-presets',
+  negativePresets: '/api/config/negative-presets',
+  generationSettings: '/api/config/settings',
 } as const
 
 function readStoredJson<T>(key: string): T | undefined {
@@ -96,6 +96,20 @@ function downloadJsonFile(fileName: string, payload: unknown) {
   URL.revokeObjectURL(url)
 }
 
+async function saveJsonToProject(path: string, payload: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Save failed with status ${response.status}`)
+  }
+}
+
 export function SettingsPage() {
   const [positivePresetGroup, setPositivePresetGroup] = useState<PromptPresetGroup>(
     DEFAULT_POSITIVE_PRESETS,
@@ -112,6 +126,8 @@ export function SettingsPage() {
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [connectionResult, setConnectionResult] = useState<string | null>(null)
   const [connectionError, setConnectionError] = useState(false)
+  const [saveResult, setSaveResult] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState(false)
   const [hasHydratedSettings, setHasHydratedSettings] = useState(false)
   const [positiveDraft, setPositiveDraft] = useState(
     positivePresetGroup.presets[positivePresetGroup.selectedPreset],
@@ -143,9 +159,9 @@ export function SettingsPage() {
         fetchJson<GenerationSettings>(REMOTE_JSON_PATHS.generationSettings, DEFAULT_GENERATION_SETTINGS),
       ])
 
-      const nextPositivePresets = storedPositivePresets ?? remotePositivePresets
-      const nextNegativePresets = storedNegativePresets ?? remoteNegativePresets
-      const nextGenerationSettings = storedGenerationSettings ?? remoteGenerationSettings
+      const nextPositivePresets = remotePositivePresets ?? storedPositivePresets ?? DEFAULT_POSITIVE_PRESETS
+      const nextNegativePresets = remoteNegativePresets ?? storedNegativePresets ?? DEFAULT_NEGATIVE_PRESETS
+      const nextGenerationSettings = remoteGenerationSettings ?? storedGenerationSettings ?? DEFAULT_GENERATION_SETTINGS
 
       setPositivePresetGroup(nextPositivePresets)
       setNegativePresetGroup(nextNegativePresets)
@@ -261,8 +277,8 @@ export function SettingsPage() {
           <h2>Prompt presets</h2>
         </div>
         <p className="subtitle">
-          Die JSON-Dateien aus `public/` werden beim Start geladen. Speichern exportiert die aktuelle
-          Version als Download.
+          Die JSON-Dateien werden aus dem Projektordner geladen und beim Speichern direkt dort
+          aktualisiert.
         </p>
 
         <div className="settings-grid two-columns">
@@ -288,7 +304,22 @@ export function SettingsPage() {
               }
 
               setPositivePresetGroup(nextPresetGroup)
-              downloadJsonFile('positive-presets.json', nextPresetGroup)
+              void (async () => {
+                try {
+                  await saveJsonToProject(REMOTE_JSON_PATHS.positivePresets, nextPresetGroup)
+                  setSaveResult('Positive presets wurden im Projektordner gespeichert.')
+                  setSaveError(false)
+                } catch (error) {
+                  setSaveResult(
+                    error instanceof Error
+                      ? `Positive presets konnten nicht gespeichert werden: ${error.message}`
+                      : 'Positive presets konnten nicht gespeichert werden.',
+                  )
+                  setSaveError(true)
+                  // Keep manual fallback so users do not lose edits.
+                  downloadJsonFile('positive-presets.json', nextPresetGroup)
+                }
+              })()
             }}
           />
 
@@ -314,7 +345,22 @@ export function SettingsPage() {
               }
 
               setNegativePresetGroup(nextPresetGroup)
-              downloadJsonFile('negative-presets.json', nextPresetGroup)
+              void (async () => {
+                try {
+                  await saveJsonToProject(REMOTE_JSON_PATHS.negativePresets, nextPresetGroup)
+                  setSaveResult('Negative presets wurden im Projektordner gespeichert.')
+                  setSaveError(false)
+                } catch (error) {
+                  setSaveResult(
+                    error instanceof Error
+                      ? `Negative presets konnten nicht gespeichert werden: ${error.message}`
+                      : 'Negative presets konnten nicht gespeichert werden.',
+                  )
+                  setSaveError(true)
+                  // Keep manual fallback so users do not lose edits.
+                  downloadJsonFile('negative-presets.json', nextPresetGroup)
+                }
+              })()
             }}
           />
         </div>
@@ -352,10 +398,25 @@ export function SettingsPage() {
                   }
 
                   setGenerationSettings(nextSettings)
-                  downloadJsonFile('settings.json', nextSettings)
+                  void (async () => {
+                    try {
+                      await saveJsonToProject(REMOTE_JSON_PATHS.generationSettings, nextSettings)
+                      setSaveResult('Settings wurden im Projektordner gespeichert.')
+                      setSaveError(false)
+                    } catch (error) {
+                      setSaveResult(
+                        error instanceof Error
+                          ? `Settings konnten nicht gespeichert werden: ${error.message}`
+                          : 'Settings konnten nicht gespeichert werden.',
+                      )
+                      setSaveError(true)
+                      // Keep manual fallback so users do not lose edits.
+                      downloadJsonFile('settings.json', nextSettings)
+                    }
+                  })()
                 }}
               >
-                Save URL
+                Save settings
               </button>
               <button
                 type="button"
@@ -397,6 +458,11 @@ export function SettingsPage() {
             {connectionResult ? (
               <p className={`field-hint ${connectionError ? 'is-error' : 'is-success'}`}>
                 {connectionResult}
+              </p>
+            ) : null}
+            {saveResult ? (
+              <p className={`field-hint ${saveError ? 'is-error' : 'is-success'}`}>
+                {saveResult}
               </p>
             ) : null}
           </label>
