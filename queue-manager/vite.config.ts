@@ -10,6 +10,8 @@ const CONFIG_FILE_MAP = {
   settings: 'settings.json',
 } as const
 
+const AUTOMATIC1111_MODELS_PATH = '/api/automatic1111/models'
+
 type ConfigKey = keyof typeof CONFIG_FILE_MAP
 
 async function pathExists(targetPath: string) {
@@ -50,6 +52,57 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use(async (req, res, next) => {
           const requestUrl = req.url ?? ''
+          const parsedUrl = new URL(requestUrl, 'http://localhost')
+
+          if (parsedUrl.pathname === AUTOMATIC1111_MODELS_PATH) {
+            if (req.method !== 'GET') {
+              res.statusCode = 405
+              res.setHeader('Allow', 'GET')
+              res.end()
+              return
+            }
+
+            const rawBaseUrl = parsedUrl.searchParams.get('baseUrl')?.trim() ?? ''
+            if (!rawBaseUrl) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ message: 'Missing baseUrl query parameter.' }))
+              return
+            }
+
+            const normalizedBaseUrl = rawBaseUrl.replace(/\/$/, '')
+            const targetUrl = `${normalizedBaseUrl}/sdapi/v1/sd-models`
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+            try {
+              const response = await fetch(targetUrl, { signal: controller.signal })
+              const bodyText = await response.text()
+
+              if (!response.ok) {
+                res.statusCode = response.status
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ message: `Automatic1111 request failed with status ${response.status}.` }))
+                return
+              }
+
+              res.statusCode = 200
+              res.setHeader('Content-Type', 'application/json')
+              res.end(bodyText)
+            } catch (error) {
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(
+                JSON.stringify({
+                  message: error instanceof Error ? error.message : 'Could not reach Automatic1111.',
+                }),
+              )
+            } finally {
+              clearTimeout(timeoutId)
+            }
+            return
+          }
+
           const configMatch = requestUrl.match(/^\/api\/config\/(positive-presets|negative-presets|settings)$/)
 
           if (!configMatch) {
