@@ -11,12 +11,12 @@ type CategoryListTabProps = {
 
 const summarizeTemplate = (template: CategoryTemplateEntry) => {
   const summaryParts = [
-    template.data.loras,
-    template.data.positive_prompt,
-    template.data.negative_prompt ? `neg: ${template.data.negative_prompt}` : '',
+    `LoRA: ${template.data.loras || '-'}`,
+    `Positive: ${template.data.positive_prompt || '-'}`,
+    `Negative: ${template.data.negative_prompt || '-'}`,
   ].filter(Boolean);
 
-  return summaryParts.join(' | ') || 'No prompt data';
+  return summaryParts.join('\n') || 'No prompt data';
 };
 
 export function CategoryListTab({
@@ -28,9 +28,10 @@ export function CategoryListTab({
     <div className="category-list-view" role="table" aria-label={`${category.title} templates`}>
       {category.templates.map((template) => {
         const isChecked = selectedTemplateIds.includes(template.templateId);
+        const tooltipText = summarizeTemplate(template);
 
         return (
-          <label className="category-list-row" key={template.templateId}>
+          <label className="category-list-row" key={template.templateId} title={tooltipText}>
             <input
               className="template-checkbox"
               type="checkbox"
@@ -38,7 +39,6 @@ export function CategoryListTab({
               onChange={() => onToggleTemplate(category.id, template.templateId)}
             />
             <span className="template-row-title">{template.title}</span>
-            <span className="template-row-details">{summarizeTemplate(template)}</span>
           </label>
         );
       })}
