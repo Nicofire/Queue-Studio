@@ -1,0 +1,56 @@
+﻿{
+  "placeId": 3,
+  "templates": {
+    "Beach": {
+      "positive_prompt": "A tropical beach with crystal-clear water, soft white sand, palm trees, a gentle breeze, sunset with warm colors, relaxed people in hammocks, a bonfire with guitar playing, peaceful atmosphere, summer vibes, high image quality, realistic, UHD, cinematic lighting.",
+      "negative_prompt": "No dark clouds, no trash on the beach, no crowds of people, no blurry or low-quality details, no oversaturated colors, no distracting objects like boats or skyscrapers, no pixelation artifacts, no gloomy or melancholic mood.",
+      "model": "moxieDiffusionXL_v191.safetensors",
+      "loras": "\u003clora:beach:1\u003e",
+      "image_path": "image.png"
+    },
+    "Mountain": {
+      "positive_prompt": "Majestic mountains with snow-covered peaks, lush green valleys, a crystal-clear river flowing through the landscape, pine forests, a golden sunrise casting warm light, misty clouds around the peaks, hikers enjoying the view, a peaceful and serene atmosphere, ultra-detailed, high resolution, cinematic lighting, UHD, realistic textures.",
+      "negative_prompt": "No dark or stormy clouds, no pollution or trash, no overexposed or blurry details, no artificial structures like skyscrapers, no unnatural colors, no flat or dull lighting, no chaotic or cluttered elements, no heavy fog covering the mountains.",
+      "model": "sdXL_v10VAEFix.safetensors",
+      "loras": "\u003clora:mountain:1\u003e",
+      "image_path": "image.png"
+    },
+    "Forest": {
+      "positive_prompt": "A dense, enchanted forest with towering ancient trees, vibrant green moss covering the ground, soft golden sunlight filtering through the leaves, a crystal-clear stream winding through, colorful mushrooms and wildflowers, birds and deer in the distance, a peaceful and mystical atmosphere, ultra-detailed, UHD, cinematic lighting, realistic textures.",
+      "negative_prompt": "No dead trees, no dark or creepy atmosphere, no unnatural lighting, no trash or pollution, no blurry or pixelated details, no harsh shadows or overexposed areas, no modern buildings or artificial elements, no flat or dull colors.",
+      "loras": "\u003clora:forest:1\u003e",
+      "image_path": "static/images/Forest_20260331_221001.png"
+    },
+    "CatOnATree": {
+      "positive_prompt": "A cute, fluffy cat sitting gracefully on a sturdy tree branch, surrounded by lush green leaves, warm golden sunlight filtering through the foliage, a peaceful and cozy atmosphere, the cat looking curious and relaxed, soft fur details, high-resolution, ultra-detailed, cinematic lighting, UHD, realistic textures.",
+      "negative_prompt": "No aggressive or scared cat, no dark or eerie atmosphere, no blurry or low-quality details, no artificial colors, no overexposed or underexposed areas, no trash or pollution, no unnatural elements like robotic features or unrealistic textures, no chaotic or cluttered background.",
+      "model": "moxieDiffusionXL_v191.safetensors",
+      "loras": "\u003clora:catontree:1\u003e",
+      "image_path": "image.png"
+    },
+    "Team TC": {
+      "positive_prompt": "",
+      "negative_prompt": "",
+      "loras": "",
+      "image_path": "static/images/TC3.png"
+    },
+    "michael jackson": {
+      "positive_prompt": "michael jackson, Good looking, white suit, dancing",
+      "negative_prompt": "",
+      "loras": "",
+      "image_path": "static/images/michael_jackson_20260331_162947.png"
+    },
+    "test": {
+      "positive_prompt": "",
+      "negative_prompt": "",
+      "loras": "",
+      "image_path": "static/images/test_20260331_163023.png"
+    },
+    "dog": {
+      "positive_prompt": "test",
+      "negative_prompt": "",
+      "loras": "",
+      "image_path": "image.png"
+    }
+  }
+}

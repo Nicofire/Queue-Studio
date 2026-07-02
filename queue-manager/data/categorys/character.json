@@ -1,0 +1,95 @@
+﻿{
+  "placeId": 1,
+  "templates": {
+    "michael jackson": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyxl-lora-nochekaiser:1\u003e",
+      "image_path": "static/images/michael_jackson_20260331_220942.png"
+    },
+    "michael jackson2": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson3": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson4": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson5": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson6": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson7": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson8": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson9": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson10": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson11": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson12": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson13": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson14": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    },
+    "michael jackson15": {
+      "positive_prompt": "michael jackson, king of pop, iconic, detailed, realistic, 1980s style, stage performance, glittery outfit, dynamic pose, spotlight",
+      "negative_prompt": "5 fingers, blurry, low quality, deformed",
+      "loras": "\u003clora:michael-jackson-s7-ponyasdasdasdxl-lora-nochekaiser:1\u003e",
+      "image_path": "image.png"
+    }
+  }
+}

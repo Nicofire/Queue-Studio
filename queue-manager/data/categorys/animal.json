@@ -1,0 +1,29 @@
+﻿{
+  "placeId": 4,
+  "templates": {
+    "dog": {
+      "positive_prompt": "dog",
+      "negative_prompt": "ugly, 5 legs",
+      "loras": "\u003clora:dog123:1\u003e",
+      "image_path": "image.png"
+    },
+    "cat": {
+      "positive_prompt": "cat",
+      "negative_prompt": "ugly, 5 legs",
+      "loras": "\u003clora:cat123:1\u003e",
+      "image_path": "image.png"
+    },
+    "Human": {
+      "positive_prompt": "lol",
+      "negative_prompt": "",
+      "loras": "",
+      "image_path": "static/images/1091500_screenshots_20260206113656_1.jpg"
+    },
+    "test2": {
+      "positive_prompt": "Good, detailed, high quality, michael jackson, Good looking, white suit, dancing",
+      "negative_prompt": "",
+      "loras": "",
+      "image_path": "static/images/test2_20260331_211954.png"
+    }
+  }
+}

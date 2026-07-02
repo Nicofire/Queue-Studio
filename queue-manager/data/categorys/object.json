@@ -1,0 +1,17 @@
+﻿{
+  "placeId": 2,
+  "templates": {
+    "hammer": {
+      "positive_prompt": "hammer, nail",
+      "negative_prompt": "ugly, hammer in head",
+      "loras": "\u003clora:hammer123:1\u003e",
+      "image_path": "image.png"
+    },
+    "surfboard": {
+      "positive_prompt": "surfboard, surfboard in water",
+      "negative_prompt": "ugly, surfboard in air",
+      "loras": "\u003clora:surfboard123:1\u003e",
+      "image_path": "image.png"
+    }
+  }
+}
