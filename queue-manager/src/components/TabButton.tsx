@@ -1,13 +1,13 @@
-import { createTabId, type TabName } from './tabs'
+import { createTabId, type TabName } from './tabs';
 
 type TabButtonProps = {
-  tab: TabName
-  isActive: boolean
-  onSelect: (tab: TabName) => void
-}
+  tab: TabName;
+  isActive: boolean;
+  onSelect: (tab: TabName) => void;
+};
 
 export function TabButton({ tab, isActive, onSelect }: TabButtonProps) {
-  const tabId = createTabId(tab)
+  const tabId = createTabId(tab);
 
   return (
     <button
@@ -21,5 +21,5 @@ export function TabButton({ tab, isActive, onSelect }: TabButtonProps) {
     >
       {tab}
     </button>
-  )
+  );
 }

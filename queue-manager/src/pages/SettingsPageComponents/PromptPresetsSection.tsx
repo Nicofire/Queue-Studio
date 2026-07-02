@@ -1,17 +1,17 @@
-import type { Dispatch, SetStateAction } from 'react'
-import { useMemo } from 'react'
+import type { Dispatch, SetStateAction } from 'react';
+import { useMemo } from 'react';
 
-import { REMOTE_JSON_PATHS } from './settingsConfig'
-import { downloadJsonFile, saveJsonToProject } from './settingsApi'
-import { PromptPresetEditor } from './PromptPresetEditor'
-import type { PromptPresetGroup, SaveStatusHandlers } from './settingsTypes'
+import { PromptPresetEditor } from './PromptPresetEditor';
+import { downloadJsonFile, saveJsonToProject } from './settingsApi';
+import { REMOTE_JSON_PATHS } from './settingsConfig';
+import type { PromptPresetGroup, SaveStatusHandlers } from './settingsTypes';
 
 type PromptPresetsSectionProps = SaveStatusHandlers & {
-  positivePresetGroup: PromptPresetGroup
-  negativePresetGroup: PromptPresetGroup
-  setPositivePresetGroup: Dispatch<SetStateAction<PromptPresetGroup>>
-  setNegativePresetGroup: Dispatch<SetStateAction<PromptPresetGroup>>
-}
+  positivePresetGroup: PromptPresetGroup;
+  negativePresetGroup: PromptPresetGroup;
+  setPositivePresetGroup: Dispatch<SetStateAction<PromptPresetGroup>>;
+  setNegativePresetGroup: Dispatch<SetStateAction<PromptPresetGroup>>;
+};
 
 export function PromptPresetsSection({
   positivePresetGroup,
@@ -23,12 +23,12 @@ export function PromptPresetsSection({
 }: PromptPresetsSectionProps) {
   const positivePresetNames = useMemo(
     () => Object.keys(positivePresetGroup.presets),
-    [positivePresetGroup.presets],
-  )
+    [positivePresetGroup.presets]
+  );
   const negativePresetNames = useMemo(
     () => Object.keys(negativePresetGroup.presets),
-    [negativePresetGroup.presets],
-  )
+    [negativePresetGroup.presets]
+  );
 
   return (
     <section className="settings-section">
@@ -65,19 +65,19 @@ export function PromptPresetsSection({
           onSave={() => {
             void (async () => {
               try {
-                await saveJsonToProject(REMOTE_JSON_PATHS.positivePresets, positivePresetGroup)
-                setSaveResult('Positive presets wurden im Projektordner gespeichert.')
-                setSaveError(false)
+                await saveJsonToProject(REMOTE_JSON_PATHS.positivePresets, positivePresetGroup);
+                setSaveResult('Positive presets wurden im Projektordner gespeichert.');
+                setSaveError(false);
               } catch (error) {
                 setSaveResult(
                   error instanceof Error
                     ? `Positive presets konnten nicht gespeichert werden: ${error.message}`
-                    : 'Positive presets konnten nicht gespeichert werden.',
-                )
-                setSaveError(true)
-                downloadJsonFile('positive-presets.json', positivePresetGroup)
+                    : 'Positive presets konnten nicht gespeichert werden.'
+                );
+                setSaveError(true);
+                downloadJsonFile('positive-presets.json', positivePresetGroup);
               }
-            })()
+            })();
           }}
         />
 
@@ -104,22 +104,22 @@ export function PromptPresetsSection({
           onSave={() => {
             void (async () => {
               try {
-                await saveJsonToProject(REMOTE_JSON_PATHS.negativePresets, negativePresetGroup)
-                setSaveResult('Negative presets wurden im Projektordner gespeichert.')
-                setSaveError(false)
+                await saveJsonToProject(REMOTE_JSON_PATHS.negativePresets, negativePresetGroup);
+                setSaveResult('Negative presets wurden im Projektordner gespeichert.');
+                setSaveError(false);
               } catch (error) {
                 setSaveResult(
                   error instanceof Error
                     ? `Negative presets konnten nicht gespeichert werden: ${error.message}`
-                    : 'Negative presets konnten nicht gespeichert werden.',
-                )
-                setSaveError(true)
-                downloadJsonFile('negative-presets.json', negativePresetGroup)
+                    : 'Negative presets konnten nicht gespeichert werden.'
+                );
+                setSaveError(true);
+                downloadJsonFile('negative-presets.json', negativePresetGroup);
               }
-            })()
+            })();
           }}
         />
       </div>
     </section>
-  )
+  );
 }

@@ -2,21 +2,21 @@ import type {
   GenerationSettings,
   PersistedGenerationSettings,
   PromptPresetGroup,
-} from './settingsTypes'
+} from './settingsTypes';
 
 export const STORAGE_KEYS = {
   positivePresets: 'queue-manager.positive-presets',
   negativePresets: 'queue-manager.negative-presets',
   generationSettings: 'queue-manager.generation-settings',
-} as const
+} as const;
 
 export const REMOTE_JSON_PATHS = {
   positivePresets: '/api/config/positive-presets',
   negativePresets: '/api/config/negative-presets',
   generationSettings: '/api/config/settings',
-} as const
+} as const;
 
-export const MODEL_PROXY_PATH = '/api/automatic1111/models'
+export const MODEL_PROXY_PATH = '/api/automatic1111/models';
 
 export const DEFAULT_POSITIVE_PRESETS: PromptPresetGroup = {
   selectedPreset: 'Default Positive',
@@ -25,7 +25,7 @@ export const DEFAULT_POSITIVE_PRESETS: PromptPresetGroup = {
     Cinematic: 'cinematic lighting, dramatic scene, film still, rich contrast',
     Portrait: 'portrait, soft lighting, natural skin tones, clear facial details',
   },
-}
+};
 
 export const DEFAULT_NEGATIVE_PRESETS: PromptPresetGroup = {
   selectedPreset: 'Default Negative',
@@ -34,14 +34,14 @@ export const DEFAULT_NEGATIVE_PRESETS: PromptPresetGroup = {
     Anime: 'bad anatomy, extra fingers, deformed hands, low detail',
     Photo: 'motion blur, overexposed, underexposed, bad framing',
   },
-}
+};
 
 export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   apiUrl: 'http://127.0.0.1:7860',
   model: '',
   seed: -1,
   theme: 'light',
-}
+};
 
 export const DEFAULT_PERSISTED_GENERATION_SETTINGS: PersistedGenerationSettings = {
   connection: {
@@ -52,4 +52,4 @@ export const DEFAULT_PERSISTED_GENERATION_SETTINGS: PersistedGenerationSettings 
   generic: {
     theme: DEFAULT_GENERATION_SETTINGS.theme,
   },
-}
+};

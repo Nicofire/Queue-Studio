@@ -1,12 +1,12 @@
 type PromptPresetEditorProps = {
-  title: string
-  presetNames: string[]
-  selectedPreset: string
-  value: string
-  onPresetChange: (presetName: string) => void
-  onValueChange: (value: string) => void
-  onSave: () => void
-}
+  title: string;
+  presetNames: string[];
+  selectedPreset: string;
+  value: string;
+  onPresetChange: (presetName: string) => void;
+  onValueChange: (value: string) => void;
+  onSave: () => void;
+};
 
 export function PromptPresetEditor({
   title,
@@ -52,5 +52,5 @@ export function PromptPresetEditor({
         <p className="field-hint">Speichert Presets im Projektordner.</p>
       </div>
     </div>
-  )
+  );
 }
