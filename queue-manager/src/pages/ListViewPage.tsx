@@ -2,7 +2,10 @@ import { useState } from 'react';
 
 import { AddCategoryModal } from '../components/AddCategoryModal';
 import { CategoryListTab } from '../components/CategoryListTab';
-import { createCategoryInProject } from '../features/categories/categoryApi';
+import {
+  createCategoryInProject,
+  renameCategoryInProject,
+} from '../features/categories/categoryApi';
 import { loadCategories } from '../features/categories/categoryData';
 import type {
   CategoryDefinition,
@@ -19,6 +22,10 @@ export function ListViewPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const toggleTemplate = (categoryId: string, templateId: string) => {
     setSelectionByCategory((current) => {
@@ -94,6 +101,81 @@ export function ListViewPage() {
     }
   };
 
+  const handleStartRename = (category: CategoryDefinition) => {
+    setRenameError(null);
+    setEditingCategoryId(category.id);
+    setEditingCategoryName(category.title);
+  };
+
+  const handleCancelRename = () => {
+    setEditingCategoryId(null);
+    setEditingCategoryName('');
+    setRenameError(null);
+  };
+
+  const handleSubmitRename = async (category: CategoryDefinition) => {
+    const newName = editingCategoryName.trim();
+    if (!newName) {
+      setRenameError('Category name is required.');
+      return;
+    }
+
+    const duplicated = categories.some(
+      (item) => item.id !== category.id && item.title.toLowerCase() === newName.toLowerCase()
+    );
+
+    if (duplicated) {
+      setRenameError('A category with this name already exists.');
+      return;
+    }
+
+    setRenamingCategoryId(category.id);
+    setRenameError(null);
+
+    try {
+      const renamed = await renameCategoryInProject(category.id, newName);
+
+      setCategories((current) =>
+        current
+          .map((item) => {
+            if (item.id !== renamed.oldId) {
+              return item;
+            }
+
+            return {
+              ...item,
+              id: renamed.id,
+              title: renamed.title,
+              placeId: renamed.placeId,
+            };
+          })
+          .sort((a, b) => a.placeId - b.placeId || a.title.localeCompare(b.title))
+      );
+
+      setSelectionByCategory((current) => {
+        if (renamed.oldId === renamed.id || !current[renamed.oldId]) {
+          return current;
+        }
+
+        const { [renamed.oldId]: movedSelection, ...rest } = current;
+        return {
+          ...rest,
+          [renamed.id]: movedSelection,
+        };
+      });
+
+      handleCancelRename();
+    } catch (error) {
+      if (error instanceof Error) {
+        setRenameError(error.message);
+      } else {
+        setRenameError('Could not rename category file.');
+      }
+    } finally {
+      setRenamingCategoryId(null);
+    }
+  };
+
   return (
     <>
       <p className="panel-label">List View</p>
@@ -113,7 +195,52 @@ export function ListViewPage() {
         {categories.map((category) => (
           <article className="category-column" key={category.id}>
             <header className="category-column-head">
-              <h3>{category.title}</h3>
+              {editingCategoryId === category.id ? (
+                <div className="category-rename-inline">
+                  <input
+                    className="text-input category-rename-input"
+                    type="text"
+                    value={editingCategoryName}
+                    onChange={(event) => setEditingCategoryName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        void handleSubmitRename(category);
+                      }
+                      if (event.key === 'Escape') {
+                        handleCancelRename();
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <div className="category-rename-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={renamingCategoryId === category.id}
+                      onClick={() => void handleSubmitRename(category)}
+                    >
+                      {renamingCategoryId === category.id ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={renamingCategoryId === category.id}
+                      onClick={handleCancelRename}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {renameError ? <p className="field-hint is-error">{renameError}</p> : null}
+                </div>
+              ) : (
+                <h3
+                  className="category-title-editable"
+                  onDoubleClick={() => handleStartRename(category)}
+                  title="Double click to rename category"
+                >
+                  {category.title}
+                </h3>
+              )}
               <p className="field-hint">placeId: {category.placeId}</p>
             </header>
 

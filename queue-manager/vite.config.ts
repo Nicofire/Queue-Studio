@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +19,7 @@ const CONFIG_FILE_MAP = {
 
 const AUTOMATIC1111_MODELS_PATH = '/api/automatic1111/models';
 const CATEGORY_CREATE_PATH = '/api/categorys';
+const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 type ConfigKey = keyof typeof CONFIG_FILE_MAP;
@@ -203,6 +204,88 @@ export default defineConfig({
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ message: 'Could not create category file.' }));
+            }
+            return;
+          }
+
+          if (parsedUrl.pathname === CATEGORY_RENAME_PATH) {
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.setHeader('Allow', 'POST');
+              res.end();
+              return;
+            }
+
+            const rootDir = PROJECT_ROOT;
+            const categoryDir = path.resolve(rootDir, 'data', 'categorys');
+
+            await mkdir(categoryDir, { recursive: true });
+
+            try {
+              const payload = (await readRequestBody(req)) as {
+                oldId?: unknown;
+                newName?: unknown;
+              };
+
+              const oldId = typeof payload?.oldId === 'string' ? payload.oldId.trim() : '';
+              const newName = typeof payload?.newName === 'string' ? payload.newName.trim() : '';
+
+              if (!oldId || !newName) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'oldId and newName are required.' }));
+                return;
+              }
+
+              const newId = slugifyCategoryName(newName);
+              if (!newId) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(
+                  JSON.stringify({
+                    message: 'Category name must include at least one letter or number.',
+                  })
+                );
+                return;
+              }
+
+              const sourcePath = path.resolve(categoryDir, `${oldId}.json`);
+              if (!(await pathExists(sourcePath))) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'Source category file was not found.' }));
+                return;
+              }
+
+              const targetPath = path.resolve(categoryDir, `${newId}.json`);
+              if (newId !== oldId && (await pathExists(targetPath))) {
+                res.statusCode = 409;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'A category with this name already exists.' }));
+                return;
+              }
+
+              const rawContent = await readFile(sourcePath, 'utf8');
+              const placeId = readPlaceIdFromJsonContent(rawContent) ?? 0;
+
+              if (newId !== oldId) {
+                await rename(sourcePath, targetPath);
+              }
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(
+                JSON.stringify({
+                  oldId,
+                  id: newId,
+                  title: toCategoryTitleFromSlug(newId),
+                  placeId,
+                })
+              );
+            } catch {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ message: 'Could not rename category file.' }));
             }
             return;
           }

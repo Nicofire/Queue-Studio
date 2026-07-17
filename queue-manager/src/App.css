@@ -337,6 +337,25 @@
   font-size: 1rem;
 }
 
+.category-title-editable {
+  cursor: text;
+}
+
+.category-rename-inline {
+  display: grid;
+  gap: 8px;
+}
+
+.category-rename-input {
+  padding: 8px 10px;
+}
+
+.category-rename-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .category-column-list {
   min-height: 0;
   overflow-y: auto;
