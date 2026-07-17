@@ -22,6 +22,7 @@ const getNextPlaceId = (categories: CategoryDefinition[]) =>
 export function ListViewPage() {
   const [categories, setCategories] = useState<CategoryDefinition[]>(() => loadCategories());
   const [selectionByCategory, setSelectionByCategory] = useState<CategorySelectionMap>({});
+  const [entrySearch, setEntrySearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
@@ -53,6 +54,13 @@ export function ListViewPage() {
   };
 
   const queueCount = getQueueCombinationCount(categories, selectionByCategory);
+  const normalizedSearch = entrySearch.trim().toLowerCase();
+  const matchingEntryCount = categories.reduce((accumulator, category) => {
+    const matches = category.templates.filter((template) =>
+      template.title.toLowerCase().includes(normalizedSearch)
+    ).length;
+    return accumulator + matches;
+  }, 0);
 
   const handleOpenAddModal = () => {
     setAddError(null);
@@ -401,6 +409,25 @@ export function ListViewPage() {
         </button>
       </div>
 
+      <div className="category-search-row">
+        <label className="field-group" htmlFor="category-entry-search">
+          <span className="field-label">Search Entries</span>
+          <input
+            id="category-entry-search"
+            className="text-input"
+            type="text"
+            placeholder="Search entry name across all categories..."
+            value={entrySearch}
+            onChange={(event) => setEntrySearch(event.target.value)}
+          />
+        </label>
+        {normalizedSearch ? (
+          <p className="field-hint">Matches: {matchingEntryCount}</p>
+        ) : (
+          <p className="field-hint">Showing all entries.</p>
+        )}
+      </div>
+
       <section
         ref={stripRef}
         className="category-columns-strip"
@@ -496,6 +523,7 @@ export function ListViewPage() {
                 category={category}
                 selectedTemplateIds={selectionByCategory[category.id] ?? []}
                 onToggleTemplate={toggleTemplate}
+                searchQuery={entrySearch}
               />
             </div>
           </article>

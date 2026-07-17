@@ -314,6 +314,13 @@
   gap: 12px;
 }
 
+.category-search-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 540px) auto;
+  align-items: end;
+  gap: 12px;
+}
+
 .category-column {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.58);
@@ -424,6 +431,13 @@
 
 .category-list-row:last-child {
   border-bottom: 0;
+}
+
+.category-empty-state {
+  margin: 0;
+  padding: 14px;
+  color: var(--text);
+  font-size: 0.92rem;
 }
 
 .template-checkbox {
@@ -650,5 +664,9 @@
   .category-strip-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .category-search-row {
+    grid-template-columns: 1fr;
   }
 }
