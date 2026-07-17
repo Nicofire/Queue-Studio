@@ -20,6 +20,7 @@ const CONFIG_FILE_MAP = {
 const AUTOMATIC1111_MODELS_PATH = '/api/automatic1111/models';
 const CATEGORY_CREATE_PATH = '/api/categorys';
 const CATEGORY_RENAME_PATH = '/api/categorys/rename';
+const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 type ConfigKey = keyof typeof CONFIG_FILE_MAP;
@@ -286,6 +287,105 @@ export default defineConfig({
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ message: 'Could not rename category file.' }));
+            }
+            return;
+          }
+
+          if (parsedUrl.pathname === CATEGORY_REORDER_PATH) {
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.setHeader('Allow', 'POST');
+              res.end();
+              return;
+            }
+
+            const rootDir = PROJECT_ROOT;
+            const categoryDir = path.resolve(rootDir, 'data', 'categorys');
+
+            await mkdir(categoryDir, { recursive: true });
+
+            try {
+              const payload = (await readRequestBody(req)) as { orderedIds?: unknown };
+              const orderedIds = Array.isArray(payload?.orderedIds)
+                ? payload.orderedIds.filter((item): item is string => typeof item === 'string')
+                : [];
+
+              if (orderedIds.length === 0) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(
+                  JSON.stringify({ message: 'orderedIds must be a non-empty string array.' })
+                );
+                return;
+              }
+
+              const existingFiles = (await readdir(categoryDir)).filter((name) =>
+                name.endsWith('.json')
+              );
+              const existingIds = existingFiles.map((file) => file.replace(/\.json$/, ''));
+
+              const existingSet = new Set(existingIds);
+              const orderedSet = new Set(orderedIds);
+
+              if (orderedSet.size !== orderedIds.length) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'orderedIds must not contain duplicates.' }));
+                return;
+              }
+
+              if (orderedIds.length !== existingIds.length) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(
+                  JSON.stringify({
+                    message: 'orderedIds length must match current category file count.',
+                  })
+                );
+                return;
+              }
+
+              for (const id of orderedIds) {
+                if (!existingSet.has(id)) {
+                  res.statusCode = 400;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ message: `Unknown category id: ${id}` }));
+                  return;
+                }
+              }
+
+              for (const id of existingIds) {
+                if (!orderedSet.has(id)) {
+                  res.statusCode = 400;
+                  res.setHeader('Content-Type', 'application/json');
+                  res.end(JSON.stringify({ message: `Missing category id: ${id}` }));
+                  return;
+                }
+              }
+
+              for (let placeId = 0; placeId < orderedIds.length; placeId += 1) {
+                const id = orderedIds[placeId];
+                const filePath = path.resolve(categoryDir, `${id}.json`);
+                const rawContent = await readFile(filePath, 'utf8');
+                const withoutBom = rawContent.replace(/^\uFEFF/, '');
+                const parsed = JSON.parse(withoutBom) as {
+                  placeId?: unknown;
+                  templates?: unknown;
+                  [key: string]: unknown;
+                };
+
+                parsed.placeId = placeId;
+
+                await writeFile(filePath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8');
+              }
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ ok: true }));
+            } catch {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ message: 'Could not reorder category files.' }));
             }
             return;
           }

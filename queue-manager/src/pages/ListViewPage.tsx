@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { AddCategoryModal } from '../components/AddCategoryModal';
 import { CategoryListTab } from '../components/CategoryListTab';
 import {
   createCategoryInProject,
   renameCategoryInProject,
+  reorderCategorysInProject,
 } from '../features/categories/categoryApi';
 import { loadCategories } from '../features/categories/categoryData';
 import type {
@@ -26,6 +27,11 @@ export function ListViewPage() {
   const [editingCategoryName, setEditingCategoryName] = useState('');
   const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [draggingCategoryId, setDraggingCategoryId] = useState<string | null>(null);
+  const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
+  const [dragError, setDragError] = useState<string | null>(null);
+  const stripRef = useRef<HTMLElement | null>(null);
 
   const toggleTemplate = (categoryId: string, templateId: string) => {
     setSelectionByCategory((current) => {
@@ -176,6 +182,125 @@ export function ListViewPage() {
     }
   };
 
+  const reorderCategoryList = (
+    current: CategoryDefinition[],
+    draggedId: string,
+    targetId: string,
+    position: 'before' | 'after'
+  ) => {
+    const draggedIndex = current.findIndex((item) => item.id === draggedId);
+    const targetIndex = current.findIndex((item) => item.id === targetId);
+
+    if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
+      return current;
+    }
+
+    const result = [...current];
+    const [dragged] = result.splice(draggedIndex, 1);
+
+    let insertIndex = targetIndex;
+    if (draggedIndex < targetIndex) {
+      insertIndex -= 1;
+    }
+    if (position === 'after') {
+      insertIndex += 1;
+    }
+
+    result.splice(insertIndex, 0, dragged);
+
+    return result.map((item, index) => ({
+      ...item,
+      placeId: index,
+    }));
+  };
+
+  const persistCategoryOrder = async (orderedIds: string[]) => {
+    await reorderCategorysInProject(orderedIds);
+  };
+
+  const handleHeaderDragStart = (event: React.DragEvent, categoryId: string) => {
+    if (editingCategoryId) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', categoryId);
+    setDraggingCategoryId(categoryId);
+    setDropTargetCategoryId(null);
+    setDropPosition(null);
+    setDragError(null);
+  };
+
+  const handleHeaderDragEnd = () => {
+    setDraggingCategoryId(null);
+    setDropTargetCategoryId(null);
+    setDropPosition(null);
+  };
+
+  const handleColumnDragOver = (event: React.DragEvent<HTMLElement>, targetCategoryId: string) => {
+    if (!draggingCategoryId || draggingCategoryId === targetCategoryId) {
+      return;
+    }
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const midpoint = rect.left + rect.width / 2;
+    const nextPosition = event.clientX < midpoint ? 'before' : 'after';
+
+    setDropTargetCategoryId(targetCategoryId);
+    setDropPosition(nextPosition);
+  };
+
+  const handleColumnDrop = async (
+    event: React.DragEvent<HTMLElement>,
+    targetCategoryId: string
+  ) => {
+    event.preventDefault();
+
+    const draggedId = draggingCategoryId ?? event.dataTransfer.getData('text/plain');
+    if (!draggedId || draggedId === targetCategoryId) {
+      return;
+    }
+
+    const position = dropPosition ?? 'before';
+    const previous = categories;
+    const reordered = reorderCategoryList(previous, draggedId, targetCategoryId, position);
+
+    setCategories(reordered);
+    setDropTargetCategoryId(null);
+    setDropPosition(null);
+
+    try {
+      await persistCategoryOrder(reordered.map((item) => item.id));
+    } catch (error) {
+      setCategories(previous);
+      if (error instanceof Error) {
+        setDragError(error.message);
+      } else {
+        setDragError('Could not save category order.');
+      }
+    }
+  };
+
+  const handleStripDragOver = (event: React.DragEvent<HTMLElement>) => {
+    if (!draggingCategoryId || !stripRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const rect = stripRef.current.getBoundingClientRect();
+    const edgeSize = Math.min(120, rect.width * 0.2);
+    const scrollStep = 26;
+
+    if (event.clientX < rect.left + edgeSize) {
+      stripRef.current.scrollLeft -= scrollStep;
+    } else if (event.clientX > rect.right - edgeSize) {
+      stripRef.current.scrollLeft += scrollStep;
+    }
+  };
+
   return (
     <>
       <p className="panel-label">List View</p>
@@ -191,9 +316,30 @@ export function ListViewPage() {
         </button>
       </div>
 
-      <section className="category-columns-strip" aria-label="Category template columns">
+      <section
+        ref={stripRef}
+        className="category-columns-strip"
+        aria-label="Category template columns"
+        onDragOver={handleStripDragOver}
+      >
         {categories.map((category) => (
-          <article className="category-column" key={category.id}>
+          <article
+            className={[
+              'category-column',
+              draggingCategoryId === category.id ? 'is-dragging' : '',
+              dropTargetCategoryId === category.id && dropPosition === 'before'
+                ? 'is-drop-before'
+                : '',
+              dropTargetCategoryId === category.id && dropPosition === 'after'
+                ? 'is-drop-after'
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            key={category.id}
+            onDragOver={(event) => handleColumnDragOver(event, category.id)}
+            onDrop={(event) => void handleColumnDrop(event, category.id)}
+          >
             <header className="category-column-head">
               {editingCategoryId === category.id ? (
                 <div className="category-rename-inline">
@@ -237,6 +383,9 @@ export function ListViewPage() {
                   className="category-title-editable"
                   onDoubleClick={() => handleStartRename(category)}
                   title="Double click to rename category"
+                  draggable={editingCategoryId === null}
+                  onDragStart={(event) => handleHeaderDragStart(event, category.id)}
+                  onDragEnd={handleHeaderDragEnd}
                 >
                   {category.title}
                 </h3>
@@ -262,6 +411,7 @@ export function ListViewPage() {
         <p className="field-hint">
           Generated queue combinations with current selections: {queueCount}
         </p>
+        {dragError ? <p className="field-hint is-error">{dragError}</p> : null}
       </section>
 
       {categories.length === 0 ? (

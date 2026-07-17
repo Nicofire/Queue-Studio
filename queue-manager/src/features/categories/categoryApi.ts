@@ -1,5 +1,6 @@
 const CATEGORY_CREATE_PATH = '/api/categorys';
 const CATEGORY_RENAME_PATH = '/api/categorys/rename';
+const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 
 type CreateCategoryResponse = {
   id: string;
@@ -65,4 +66,27 @@ export async function renameCategoryInProject(
   }
 
   return (await response.json()) as RenameCategoryResponse;
+}
+
+export async function reorderCategorysInProject(orderedIds: string[]): Promise<void> {
+  const response = await fetch(CATEGORY_REORDER_PATH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ orderedIds }),
+  });
+
+  if (!response.ok) {
+    let message = `Could not reorder categories (status ${response.status}).`;
+    try {
+      const payload = (await response.json()) as { message?: string };
+      if (payload.message) {
+        message = payload.message;
+      }
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
 }

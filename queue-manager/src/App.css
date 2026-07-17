@@ -320,6 +320,22 @@
   display: grid;
   grid-template-rows: auto minmax(240px, 56svh);
   min-height: 0;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    opacity 120ms ease;
+}
+
+.category-column.is-dragging {
+  opacity: 0.55;
+}
+
+.category-column.is-drop-before {
+  border-left: 3px solid var(--accent);
+}
+
+.category-column.is-drop-after {
+  border-right: 3px solid var(--accent);
 }
 
 .category-column-head {
@@ -338,7 +354,12 @@
 }
 
 .category-title-editable {
-  cursor: text;
+  cursor: grab;
+  user-select: none;
+}
+
+.category-title-editable:active {
+  cursor: grabbing;
 }
 
 .category-rename-inline {
