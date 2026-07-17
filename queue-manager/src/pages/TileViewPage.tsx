@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
+import { CategoryQueueSummary } from '../components/CategoryQueueSummary';
 import { CategoryTab } from '../components/CategoryTab';
 import { CategoryTileTab } from '../components/CategoryTileTab';
 import { loadCategories } from '../features/categories/categoryData';
-import type { CategorySelectionMap } from '../features/categories/categoryTypes';
-import { getQueueCombinationCount } from '../features/categories/queueBuilder';
+import { useCategorySelection } from '../features/categories/useCategorySelection';
 
 const categories = loadCategories();
 
@@ -12,23 +12,7 @@ const getDefaultActiveCategoryId = () => categories[0]?.id ?? '';
 
 export function TileViewPage() {
   const [activeCategoryId, setActiveCategoryId] = useState(getDefaultActiveCategoryId);
-  const [selectionByCategory, setSelectionByCategory] = useState<CategorySelectionMap>({});
-
-  const toggleTemplate = (categoryId: string, templateId: string) => {
-    setSelectionByCategory((current) => {
-      const selectedTemplateIds = current[categoryId] ?? [];
-      const nextTemplateIds = selectedTemplateIds.includes(templateId)
-        ? selectedTemplateIds.filter((item) => item !== templateId)
-        : [...selectedTemplateIds, templateId];
-
-      return {
-        ...current,
-        [categoryId]: nextTemplateIds,
-      };
-    });
-  };
-
-  const queueCount = getQueueCombinationCount(categories, selectionByCategory);
+  const { selectionByCategory, toggleTemplate } = useCategorySelection();
 
   return (
     <>
@@ -53,14 +37,7 @@ export function TileViewPage() {
         )}
       </CategoryTab>
 
-      <section className="queue-summary">
-        <p className="field-hint">
-          Queue build order: {categories.map((category) => category.title).join(' -> ')}
-        </p>
-        <p className="field-hint">
-          Generated queue combinations with current selections: {queueCount}
-        </p>
-      </section>
+      <CategoryQueueSummary categories={categories} selectionByCategory={selectionByCategory} />
     </>
   );
 }

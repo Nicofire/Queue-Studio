@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 
 import { AddCategoryEntryModal } from '../components/AddCategoryEntryModal';
 import { AddCategoryModal } from '../components/AddCategoryModal';
-import { CategoryListTab } from '../components/CategoryListTab';
+import { CategoryQueueSummary } from '../components/CategoryQueueSummary';
+import { ListCategoryColumn } from '../components/ListCategoryColumn';
 import {
   createCategoryEntryInProject,
   createCategoryInProject,
@@ -11,18 +12,16 @@ import {
   toggleCategoryEntryFavoriteInProject,
 } from '../features/categories/categoryApi';
 import { loadCategories } from '../features/categories/categoryData';
-import type {
-  CategoryDefinition,
-  CategorySelectionMap,
-} from '../features/categories/categoryTypes';
-import { getQueueCombinationCount } from '../features/categories/queueBuilder';
+import { filterCategoryTemplates } from '../features/categories/categoryFilters';
+import type { CategoryDefinition } from '../features/categories/categoryTypes';
+import { useCategorySelection } from '../features/categories/useCategorySelection';
 
 const getNextPlaceId = (categories: CategoryDefinition[]) =>
   categories.length === 0 ? 0 : Math.max(...categories.map((category) => category.placeId)) + 1;
 
 export function ListViewPage() {
   const [categories, setCategories] = useState<CategoryDefinition[]>(() => loadCategories());
-  const [selectionByCategory, setSelectionByCategory] = useState<CategorySelectionMap>({});
+  const { selectionByCategory, setSelectionByCategory, toggleTemplate } = useCategorySelection();
   const [favoriteOnlyByCategory, setFavoriteOnlyByCategory] = useState<Record<string, boolean>>({});
   const [entrySearch, setEntrySearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -41,22 +40,6 @@ export function ListViewPage() {
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const stripRef = useRef<HTMLElement | null>(null);
-
-  const toggleTemplate = (categoryId: string, templateId: string) => {
-    setSelectionByCategory((current) => {
-      const selectedTemplateIds = current[categoryId] ?? [];
-      const nextTemplateIds = selectedTemplateIds.includes(templateId)
-        ? selectedTemplateIds.filter((item) => item !== templateId)
-        : [...selectedTemplateIds, templateId];
-
-      return {
-        ...current,
-        [categoryId]: nextTemplateIds,
-      };
-    });
-  };
-
-  const queueCount = getQueueCombinationCount(categories, selectionByCategory);
   const normalizedSearch = entrySearch.trim().toLowerCase();
   const matchingEntryCount = categories.reduce((accumulator, category) => {
     const matches = category.templates.filter((template) =>
@@ -66,19 +49,11 @@ export function ListViewPage() {
   }, 0);
 
   const getVisibleTemplates = (category: CategoryDefinition) => {
-    const favoriteOnly = favoriteOnlyByCategory[category.id] === true;
-
-    return category.templates.filter((template) => {
-      if (normalizedSearch && !template.title.toLowerCase().includes(normalizedSearch)) {
-        return false;
-      }
-
-      if (favoriteOnly && !template.data.favorite) {
-        return false;
-      }
-
-      return true;
-    });
+    return filterCategoryTemplates(
+      category,
+      normalizedSearch,
+      favoriteOnlyByCategory[category.id] === true
+    );
   };
 
   const handleOpenAddModal = () => {
@@ -533,140 +508,40 @@ export function ListViewPage() {
         onDragOver={handleStripDragOver}
       >
         {categories.map((category) => (
-          <article
-            className={[
-              'category-column',
-              draggingCategoryId === category.id ? 'is-dragging' : '',
-              dropTargetCategoryId === category.id && dropPosition === 'before'
-                ? 'is-drop-before'
-                : '',
-              dropTargetCategoryId === category.id && dropPosition === 'after'
-                ? 'is-drop-after'
-                : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+          <ListCategoryColumn
             key={category.id}
-            onDragOver={(event) => handleColumnDragOver(event, category.id)}
-            onDrop={(event) => void handleColumnDrop(event, category.id)}
-          >
-            <header className="category-column-head">
-              <div className="category-column-head-row">
-                {editingCategoryId === category.id ? (
-                  <div className="category-rename-inline">
-                    <input
-                      className="text-input category-rename-input"
-                      type="text"
-                      value={editingCategoryName}
-                      onChange={(event) => setEditingCategoryName(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          void handleSubmitRename(category);
-                        }
-                        if (event.key === 'Escape') {
-                          handleCancelRename();
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <div className="category-rename-actions">
-                      <button
-                        type="button"
-                        className="primary-button"
-                        disabled={renamingCategoryId === category.id}
-                        onClick={() => void handleSubmitRename(category)}
-                      >
-                        {renamingCategoryId === category.id ? 'Saving...' : 'Save'}
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={renamingCategoryId === category.id}
-                        onClick={handleCancelRename}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    {renameError ? <p className="field-hint is-error">{renameError}</p> : null}
-                  </div>
-                ) : (
-                  <h3
-                    className="category-title-editable"
-                    onDoubleClick={() => handleStartRename(category)}
-                    title="Double click to rename category"
-                    draggable={editingCategoryId === null}
-                    onDragStart={(event) => handleHeaderDragStart(event, category.id)}
-                    onDragEnd={handleHeaderDragEnd}
-                  >
-                    {category.title}
-                  </h3>
-                )}
-                {editingCategoryId !== category.id ? (
-                  <button
-                    type="button"
-                    className="category-add-entry-button"
-                    onClick={() => handleOpenAddEntryModal(category.id)}
-                    title={`Add entry to ${category.title}`}
-                    aria-label={`Add entry to ${category.title}`}
-                  >
-                    +
-                  </button>
-                ) : null}
-              </div>
-              <p className="field-hint">placeId: {category.placeId}</p>
-              <div className="category-column-filters">
-                <button
-                  type="button"
-                  className={
-                    getVisibleTemplates(category).length > 0 &&
-                    getVisibleTemplates(category).every((template) =>
-                      (selectionByCategory[category.id] ?? []).includes(template.templateId)
-                    )
-                      ? 'toggle-button is-active'
-                      : 'toggle-button'
-                  }
-                  onClick={() => handleToggleSelectAll(category)}
-                >
-                  Select All
-                </button>
-                <button
-                  type="button"
-                  className={
-                    favoriteOnlyByCategory[category.id]
-                      ? 'toggle-button is-active'
-                      : 'toggle-button'
-                  }
-                  onClick={() => handleToggleFavoriteOnly(category.id)}
-                >
-                  Favorit only
-                </button>
-              </div>
-            </header>
-
-            <div className="category-column-list">
-              <CategoryListTab
-                category={category}
-                selectedTemplateIds={selectionByCategory[category.id] ?? []}
-                onToggleTemplate={toggleTemplate}
-                onToggleFavorite={handleToggleFavorite}
-                favoriteOnly={favoriteOnlyByCategory[category.id] === true}
-                searchQuery={entrySearch}
-              />
-            </div>
-          </article>
+            category={category}
+            selectedTemplateIds={selectionByCategory[category.id] ?? []}
+            searchQuery={entrySearch}
+            favoriteOnly={favoriteOnlyByCategory[category.id] === true}
+            isDragging={draggingCategoryId === category.id}
+            dropPosition={dropTargetCategoryId === category.id ? dropPosition : null}
+            isEditing={editingCategoryId === category.id}
+            editingCategoryName={editingCategoryName}
+            isRenaming={renamingCategoryId === category.id}
+            renameError={renameError}
+            onStartRename={() => handleStartRename(category)}
+            onEditingCategoryNameChange={setEditingCategoryName}
+            onCancelRename={handleCancelRename}
+            onSubmitRename={() => void handleSubmitRename(category)}
+            onHeaderDragStart={handleHeaderDragStart}
+            onHeaderDragEnd={handleHeaderDragEnd}
+            onColumnDragOver={handleColumnDragOver}
+            onColumnDrop={handleColumnDrop}
+            onOpenAddEntryModal={() => handleOpenAddEntryModal(category.id)}
+            onToggleSelectAll={() => handleToggleSelectAll(category)}
+            onToggleFavoriteOnly={() => handleToggleFavoriteOnly(category.id)}
+            onToggleTemplate={toggleTemplate}
+            onToggleFavorite={handleToggleFavorite}
+          />
         ))}
       </section>
 
-      <section className="queue-summary">
-        <p className="field-hint">
-          Queue build order: {categories.map((category) => category.title).join(' -> ')}
-        </p>
-        <p className="field-hint">
-          Generated queue combinations with current selections: {queueCount}
-        </p>
-        {dragError ? <p className="field-hint is-error">{dragError}</p> : null}
-        {favoriteError ? <p className="field-hint is-error">{favoriteError}</p> : null}
-      </section>
+      <CategoryQueueSummary
+        categories={categories}
+        selectionByCategory={selectionByCategory}
+        errorMessages={[dragError, favoriteError]}
+      />
 
       {categories.length === 0 ? (
         <section className="queue-summary">
