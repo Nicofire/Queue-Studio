@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
 
+import { AddCategoryEntryModal } from '../components/AddCategoryEntryModal';
 import { AddCategoryModal } from '../components/AddCategoryModal';
 import { CategoryListTab } from '../components/CategoryListTab';
 import {
+  createCategoryEntryInProject,
   createCategoryInProject,
   renameCategoryInProject,
   reorderCategorysInProject,
@@ -31,6 +33,9 @@ export function ListViewPage() {
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
   const [dragError, setDragError] = useState<string | null>(null);
+  const [entryModalCategoryId, setEntryModalCategoryId] = useState<string | null>(null);
+  const [entryModalError, setEntryModalError] = useState<string | null>(null);
+  const [isSavingEntry, setIsSavingEntry] = useState(false);
   const stripRef = useRef<HTMLElement | null>(null);
 
   const toggleTemplate = (categoryId: string, templateId: string) => {
@@ -301,6 +306,86 @@ export function ListViewPage() {
     }
   };
 
+  const handleOpenAddEntryModal = (categoryId: string) => {
+    setEntryModalError(null);
+    setEntryModalCategoryId(categoryId);
+  };
+
+  const handleCloseAddEntryModal = () => {
+    setEntryModalCategoryId(null);
+    setEntryModalError(null);
+  };
+
+  const activeEntryCategory =
+    entryModalCategoryId === null
+      ? null
+      : (categories.find((category) => category.id === entryModalCategoryId) ?? null);
+
+  const handleSaveEntry = async (payload: {
+    entryName: string;
+    positive_prompt: string;
+    negative_prompt: string;
+    loras: string;
+    model?: string;
+    imageDataBase64?: string;
+    imageOriginalName?: string;
+  }) => {
+    if (!activeEntryCategory) {
+      setEntryModalError('Selected category was not found.');
+      return;
+    }
+
+    const duplicated = activeEntryCategory.templates.some(
+      (template) => template.templateId.toLowerCase() === payload.entryName.trim().toLowerCase()
+    );
+
+    if (duplicated) {
+      setEntryModalError('An entry with this name already exists in this category.');
+      return;
+    }
+
+    setEntryModalError(null);
+    setIsSavingEntry(true);
+
+    try {
+      const created = await createCategoryEntryInProject({
+        categoryId: activeEntryCategory.id,
+        entryName: payload.entryName,
+        positive_prompt: payload.positive_prompt,
+        negative_prompt: payload.negative_prompt,
+        loras: payload.loras,
+        model: payload.model,
+        imageDataBase64: payload.imageDataBase64,
+        imageOriginalName: payload.imageOriginalName,
+      });
+
+      setCategories((current) =>
+        current.map((category) => {
+          if (category.id !== activeEntryCategory.id) {
+            return category;
+          }
+
+          return {
+            ...category,
+            templates: [...category.templates, created].sort((a, b) =>
+              a.title.localeCompare(b.title)
+            ),
+          };
+        })
+      );
+
+      handleCloseAddEntryModal();
+    } catch (error) {
+      if (error instanceof Error) {
+        setEntryModalError(error.message);
+      } else {
+        setEntryModalError('Could not create category entry.');
+      }
+    } finally {
+      setIsSavingEntry(false);
+    }
+  };
+
   return (
     <>
       <p className="panel-label">List View</p>
@@ -341,55 +426,68 @@ export function ListViewPage() {
             onDrop={(event) => void handleColumnDrop(event, category.id)}
           >
             <header className="category-column-head">
-              {editingCategoryId === category.id ? (
-                <div className="category-rename-inline">
-                  <input
-                    className="text-input category-rename-input"
-                    type="text"
-                    value={editingCategoryName}
-                    onChange={(event) => setEditingCategoryName(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        void handleSubmitRename(category);
-                      }
-                      if (event.key === 'Escape') {
-                        handleCancelRename();
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <div className="category-rename-actions">
-                    <button
-                      type="button"
-                      className="primary-button"
-                      disabled={renamingCategoryId === category.id}
-                      onClick={() => void handleSubmitRename(category)}
-                    >
-                      {renamingCategoryId === category.id ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={renamingCategoryId === category.id}
-                      onClick={handleCancelRename}
-                    >
-                      Cancel
-                    </button>
+              <div className="category-column-head-row">
+                {editingCategoryId === category.id ? (
+                  <div className="category-rename-inline">
+                    <input
+                      className="text-input category-rename-input"
+                      type="text"
+                      value={editingCategoryName}
+                      onChange={(event) => setEditingCategoryName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          void handleSubmitRename(category);
+                        }
+                        if (event.key === 'Escape') {
+                          handleCancelRename();
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <div className="category-rename-actions">
+                      <button
+                        type="button"
+                        className="primary-button"
+                        disabled={renamingCategoryId === category.id}
+                        onClick={() => void handleSubmitRename(category)}
+                      >
+                        {renamingCategoryId === category.id ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={renamingCategoryId === category.id}
+                        onClick={handleCancelRename}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {renameError ? <p className="field-hint is-error">{renameError}</p> : null}
                   </div>
-                  {renameError ? <p className="field-hint is-error">{renameError}</p> : null}
-                </div>
-              ) : (
-                <h3
-                  className="category-title-editable"
-                  onDoubleClick={() => handleStartRename(category)}
-                  title="Double click to rename category"
-                  draggable={editingCategoryId === null}
-                  onDragStart={(event) => handleHeaderDragStart(event, category.id)}
-                  onDragEnd={handleHeaderDragEnd}
-                >
-                  {category.title}
-                </h3>
-              )}
+                ) : (
+                  <h3
+                    className="category-title-editable"
+                    onDoubleClick={() => handleStartRename(category)}
+                    title="Double click to rename category"
+                    draggable={editingCategoryId === null}
+                    onDragStart={(event) => handleHeaderDragStart(event, category.id)}
+                    onDragEnd={handleHeaderDragEnd}
+                  >
+                    {category.title}
+                  </h3>
+                )}
+                {editingCategoryId !== category.id ? (
+                  <button
+                    type="button"
+                    className="category-add-entry-button"
+                    onClick={() => handleOpenAddEntryModal(category.id)}
+                    title={`Add entry to ${category.title}`}
+                    aria-label={`Add entry to ${category.title}`}
+                  >
+                    +
+                  </button>
+                ) : null}
+              </div>
               <p className="field-hint">placeId: {category.placeId}</p>
             </header>
 
@@ -427,6 +525,17 @@ export function ListViewPage() {
           isSaving={isSavingCategory}
           onClose={handleCloseAddModal}
           onSave={handleSaveCategory}
+        />
+      ) : null}
+
+      {activeEntryCategory ? (
+        <AddCategoryEntryModal
+          isOpen={Boolean(activeEntryCategory)}
+          categoryTitle={activeEntryCategory.title}
+          errorMessage={entryModalError}
+          isSaving={isSavingEntry}
+          onClose={handleCloseAddEntryModal}
+          onSave={handleSaveEntry}
         />
       ) : null}
     </>

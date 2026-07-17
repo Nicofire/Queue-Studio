@@ -21,6 +21,7 @@ const AUTOMATIC1111_MODELS_PATH = '/api/automatic1111/models';
 const CATEGORY_CREATE_PATH = '/api/categorys';
 const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
+const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
 const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 type ConfigKey = keyof typeof CONFIG_FILE_MAP;
@@ -386,6 +387,133 @@ export default defineConfig({
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ message: 'Could not reorder category files.' }));
+            }
+            return;
+          }
+
+          if (parsedUrl.pathname === CATEGORY_ENTRY_CREATE_PATH) {
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.setHeader('Allow', 'POST');
+              res.end();
+              return;
+            }
+
+            const rootDir = PROJECT_ROOT;
+            const categoryDir = path.resolve(rootDir, 'data', 'categorys');
+            const imageDir = path.resolve(rootDir, 'public', 'static', 'images');
+
+            await mkdir(categoryDir, { recursive: true });
+            await mkdir(imageDir, { recursive: true });
+
+            try {
+              const payload = (await readRequestBody(req)) as {
+                categoryId?: unknown;
+                entryName?: unknown;
+                positive_prompt?: unknown;
+                negative_prompt?: unknown;
+                loras?: unknown;
+                model?: unknown;
+                imageDataBase64?: unknown;
+                imageOriginalName?: unknown;
+              };
+
+              const categoryId =
+                typeof payload?.categoryId === 'string' ? payload.categoryId.trim() : '';
+              const entryName =
+                typeof payload?.entryName === 'string' ? payload.entryName.trim() : '';
+
+              if (!categoryId || !entryName) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'categoryId and entryName are required.' }));
+                return;
+              }
+
+              const categoryPath = path.resolve(categoryDir, `${categoryId}.json`);
+              if (!(await pathExists(categoryPath))) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'Category file was not found.' }));
+                return;
+              }
+
+              const rawContent = await readFile(categoryPath, 'utf8');
+              const parsed = JSON.parse(rawContent.replace(/^\uFEFF/, '')) as {
+                placeId?: unknown;
+                templates?: Record<string, unknown>;
+                [key: string]: unknown;
+              };
+
+              const templates =
+                parsed.templates && typeof parsed.templates === 'object' ? parsed.templates : {};
+
+              const duplicateEntry = Object.keys(templates).some(
+                (templateKey) => templateKey.toLowerCase() === entryName.toLowerCase()
+              );
+              if (duplicateEntry) {
+                res.statusCode = 409;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'An entry with this name already exists.' }));
+                return;
+              }
+
+              let imagePath = '';
+              const imageDataBase64 =
+                typeof payload.imageDataBase64 === 'string' ? payload.imageDataBase64 : '';
+              const hasImageData = imageDataBase64.length > 0;
+              if (hasImageData) {
+                const originalName =
+                  typeof payload.imageOriginalName === 'string'
+                    ? payload.imageOriginalName
+                    : 'entry-image.png';
+                const rawExtension = path.extname(originalName).toLowerCase();
+                const allowedExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp']);
+                const extension = allowedExtensions.has(rawExtension) ? rawExtension : '.png';
+
+                const imageBaseName = slugifyCategoryName(entryName) || 'entry';
+                const fileName = `${imageBaseName}_${Date.now()}${extension}`;
+                const targetImagePath = path.resolve(imageDir, fileName);
+
+                const binary = Buffer.from(imageDataBase64, 'base64');
+                await writeFile(targetImagePath, binary);
+                imagePath = `static/images/${fileName}`;
+              }
+
+              const nextEntry = {
+                positive_prompt:
+                  typeof payload.positive_prompt === 'string' ? payload.positive_prompt : '',
+                negative_prompt:
+                  typeof payload.negative_prompt === 'string' ? payload.negative_prompt : '',
+                loras: typeof payload.loras === 'string' ? payload.loras : '',
+                image_path: imagePath,
+                ...(typeof payload.model === 'string' && payload.model.trim()
+                  ? { model: payload.model.trim() }
+                  : {}),
+              };
+
+              const nextTemplates = {
+                ...templates,
+                [entryName]: nextEntry,
+              };
+
+              parsed.templates = nextTemplates;
+
+              await writeFile(categoryPath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8');
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(
+                JSON.stringify({
+                  templateId: entryName,
+                  title: entryName,
+                  data: nextEntry,
+                })
+              );
+            } catch {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ message: 'Could not create category entry.' }));
             }
             return;
           }
