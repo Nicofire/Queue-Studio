@@ -8,6 +8,7 @@ type CategoryListTabProps = {
   selectedTemplateIds: string[];
   onToggleTemplate: (categoryId: string, templateId: string) => void;
   onToggleFavorite: (categoryId: string, templateId: string, favorite: boolean) => void;
+  favoriteOnly?: boolean;
   searchQuery?: string;
 };
 
@@ -26,14 +27,21 @@ export function CategoryListTab({
   selectedTemplateIds,
   onToggleTemplate,
   onToggleFavorite,
+  favoriteOnly = false,
   searchQuery = '',
 }: CategoryListTabProps) {
   const normalizedSearch = searchQuery.trim().toLowerCase();
-  const filteredTemplates = normalizedSearch
-    ? category.templates.filter((template) =>
-        template.title.toLowerCase().includes(normalizedSearch)
-      )
-    : category.templates;
+  const filteredTemplates = category.templates.filter((template) => {
+    if (normalizedSearch && !template.title.toLowerCase().includes(normalizedSearch)) {
+      return false;
+    }
+
+    if (favoriteOnly && !template.data.favorite) {
+      return false;
+    }
+
+    return true;
+  });
 
   return (
     <div className="category-list-view" role="table" aria-label={`${category.title} templates`}>

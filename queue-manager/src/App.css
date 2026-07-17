@@ -361,6 +361,13 @@
   gap: 8px;
 }
 
+.category-column-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
 .category-column-head h3 {
   margin: 0;
   color: var(--text-h);

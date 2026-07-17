@@ -23,6 +23,7 @@ const getNextPlaceId = (categories: CategoryDefinition[]) =>
 export function ListViewPage() {
   const [categories, setCategories] = useState<CategoryDefinition[]>(() => loadCategories());
   const [selectionByCategory, setSelectionByCategory] = useState<CategorySelectionMap>({});
+  const [favoriteOnlyByCategory, setFavoriteOnlyByCategory] = useState<Record<string, boolean>>({});
   const [entrySearch, setEntrySearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -63,6 +64,22 @@ export function ListViewPage() {
     ).length;
     return accumulator + matches;
   }, 0);
+
+  const getVisibleTemplates = (category: CategoryDefinition) => {
+    const favoriteOnly = favoriteOnlyByCategory[category.id] === true;
+
+    return category.templates.filter((template) => {
+      if (normalizedSearch && !template.title.toLowerCase().includes(normalizedSearch)) {
+        return false;
+      }
+
+      if (favoriteOnly && !template.data.favorite) {
+        return false;
+      }
+
+      return true;
+    });
+  };
 
   const handleOpenAddModal = () => {
     setAddError(null);
@@ -439,6 +456,42 @@ export function ListViewPage() {
     }
   };
 
+  const handleToggleFavoriteOnly = (categoryId: string) => {
+    setFavoriteOnlyByCategory((current) => ({
+      ...current,
+      [categoryId]: !current[categoryId],
+    }));
+  };
+
+  const handleToggleSelectAll = (category: CategoryDefinition) => {
+    const visibleTemplateIds = getVisibleTemplates(category).map((template) => template.templateId);
+
+    if (visibleTemplateIds.length === 0) {
+      return;
+    }
+
+    setSelectionByCategory((current) => {
+      const selectedTemplateIds = current[category.id] ?? [];
+      const allVisibleSelected = visibleTemplateIds.every((templateId) =>
+        selectedTemplateIds.includes(templateId)
+      );
+
+      if (allVisibleSelected) {
+        return {
+          ...current,
+          [category.id]: selectedTemplateIds.filter(
+            (templateId) => !visibleTemplateIds.includes(templateId)
+          ),
+        };
+      }
+
+      return {
+        ...current,
+        [category.id]: Array.from(new Set([...selectedTemplateIds, ...visibleTemplateIds])),
+      };
+    });
+  };
+
   return (
     <>
       <p className="panel-label">List View</p>
@@ -561,6 +614,31 @@ export function ListViewPage() {
                 ) : null}
               </div>
               <p className="field-hint">placeId: {category.placeId}</p>
+              <div className="category-column-filters">
+                <button
+                  type="button"
+                  className={
+                    getVisibleTemplates(category).length > 0 &&
+                    getVisibleTemplates(category).every((template) =>
+                      (selectionByCategory[category.id] ?? []).includes(template.templateId)
+                    )
+                      ? 'toggle-button is-active'
+                      : 'toggle-button'
+                  }
+                  onClick={() => handleToggleSelectAll(category)}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  className={
+                    favoriteOnlyByCategory[category.id] ? 'toggle-button is-active' : 'toggle-button'
+                  }
+                  onClick={() => handleToggleFavoriteOnly(category.id)}
+                >
+                  Favorit only
+                </button>
+              </div>
             </header>
 
             <div className="category-column-list">
@@ -569,6 +647,7 @@ export function ListViewPage() {
                 selectedTemplateIds={selectionByCategory[category.id] ?? []}
                 onToggleTemplate={toggleTemplate}
                 onToggleFavorite={handleToggleFavorite}
+                favoriteOnly={favoriteOnlyByCategory[category.id] === true}
                 searchQuery={entrySearch}
               />
             </div>
