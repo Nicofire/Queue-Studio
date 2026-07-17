@@ -632,7 +632,9 @@ export function ListViewPage() {
                 <button
                   type="button"
                   className={
-                    favoriteOnlyByCategory[category.id] ? 'toggle-button is-active' : 'toggle-button'
+                    favoriteOnlyByCategory[category.id]
+                      ? 'toggle-button is-active'
+                      : 'toggle-button'
                   }
                   onClick={() => handleToggleFavoriteOnly(category.id)}
                 >
