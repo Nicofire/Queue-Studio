@@ -8,6 +8,7 @@ import {
   createCategoryInProject,
   renameCategoryInProject,
   reorderCategorysInProject,
+  toggleCategoryEntryFavoriteInProject,
 } from '../features/categories/categoryApi';
 import { loadCategories } from '../features/categories/categoryData';
 import type {
@@ -37,6 +38,7 @@ export function ListViewPage() {
   const [entryModalCategoryId, setEntryModalCategoryId] = useState<string | null>(null);
   const [entryModalError, setEntryModalError] = useState<string | null>(null);
   const [isSavingEntry, setIsSavingEntry] = useState(false);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const stripRef = useRef<HTMLElement | null>(null);
 
   const toggleTemplate = (categoryId: string, templateId: string) => {
@@ -394,6 +396,49 @@ export function ListViewPage() {
     }
   };
 
+  const handleToggleFavorite = async (
+    categoryId: string,
+    templateId: string,
+    favorite: boolean
+  ) => {
+    setFavoriteError(null);
+
+    const previous = categories;
+    setCategories((current) =>
+      current.map((category) => {
+        if (category.id !== categoryId) {
+          return category;
+        }
+
+        return {
+          ...category,
+          templates: category.templates.map((template) =>
+            template.templateId === templateId
+              ? {
+                  ...template,
+                  data: {
+                    ...template.data,
+                    favorite,
+                  },
+                }
+              : template
+          ),
+        };
+      })
+    );
+
+    try {
+      await toggleCategoryEntryFavoriteInProject(categoryId, templateId, favorite);
+    } catch (error) {
+      setCategories(previous);
+      if (error instanceof Error) {
+        setFavoriteError(error.message);
+      } else {
+        setFavoriteError('Could not update favorite state.');
+      }
+    }
+  };
+
   return (
     <>
       <p className="panel-label">List View</p>
@@ -523,6 +568,7 @@ export function ListViewPage() {
                 category={category}
                 selectedTemplateIds={selectionByCategory[category.id] ?? []}
                 onToggleTemplate={toggleTemplate}
+                onToggleFavorite={handleToggleFavorite}
                 searchQuery={entrySearch}
               />
             </div>
@@ -538,6 +584,7 @@ export function ListViewPage() {
           Generated queue combinations with current selections: {queueCount}
         </p>
         {dragError ? <p className="field-hint is-error">{dragError}</p> : null}
+        {favoriteError ? <p className="field-hint is-error">{favoriteError}</p> : null}
       </section>
 
       {categories.length === 0 ? (

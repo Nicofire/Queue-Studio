@@ -12,6 +12,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const readString = (value: unknown) => (typeof value === 'string' ? value : '');
+const readBoolean = (value: unknown) => value === true;
 
 const readNumber = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
@@ -24,6 +25,7 @@ const readTemplate = (value: unknown): CategoryTemplate => {
     negative_prompt: readString(data.negative_prompt),
     loras: readString(data.loras),
     image_path: readString(data.image_path),
+    favorite: readBoolean(data.favorite),
     model: readString(data.model) || undefined,
   };
 };

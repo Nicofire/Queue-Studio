@@ -3,6 +3,7 @@ export type CategoryTemplate = {
   negative_prompt: string;
   loras: string;
   image_path: string;
+  favorite: boolean;
   model?: string;
 };
 

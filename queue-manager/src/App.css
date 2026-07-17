@@ -417,12 +417,12 @@
 }
 
 .category-column-list .category-list-row {
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
 }
 
 .category-list-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
@@ -449,6 +449,24 @@
 .template-row-title {
   color: var(--text-h);
   font-weight: 600;
+}
+
+.favorite-toggle-button {
+  border: 0;
+  background: transparent;
+  color: rgba(148, 163, 184, 0.9);
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.favorite-toggle-button.is-active {
+  color: #f59e0b;
+}
+
+.favorite-toggle-button:hover {
+  color: #f59e0b;
 }
 
 .category-tile-grid {
@@ -654,7 +672,7 @@
   }
 
   .category-list-row {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
   }
 
   .category-columns-strip {

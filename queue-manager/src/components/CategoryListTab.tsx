@@ -7,6 +7,7 @@ type CategoryListTabProps = {
   category: CategoryDefinition;
   selectedTemplateIds: string[];
   onToggleTemplate: (categoryId: string, templateId: string) => void;
+  onToggleFavorite: (categoryId: string, templateId: string, favorite: boolean) => void;
   searchQuery?: string;
 };
 
@@ -24,6 +25,7 @@ export function CategoryListTab({
   category,
   selectedTemplateIds,
   onToggleTemplate,
+  onToggleFavorite,
   searchQuery = '',
 }: CategoryListTabProps) {
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -48,6 +50,27 @@ export function CategoryListTab({
               onChange={() => onToggleTemplate(category.id, template.templateId)}
             />
             <span className="template-row-title">{template.title}</span>
+            <button
+              type="button"
+              className={
+                template.data.favorite
+                  ? 'favorite-toggle-button is-active'
+                  : 'favorite-toggle-button'
+              }
+              aria-label={
+                template.data.favorite
+                  ? `Remove ${template.title} from favorites`
+                  : `Mark ${template.title} as favorite`
+              }
+              title={template.data.favorite ? 'Favorite entry' : 'Mark as favorite'}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onToggleFavorite(category.id, template.templateId, !template.data.favorite);
+              }}
+            >
+              {template.data.favorite ? '★' : '☆'}
+            </button>
           </label>
         );
       })}

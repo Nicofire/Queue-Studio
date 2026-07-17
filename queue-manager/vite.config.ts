@@ -22,6 +22,7 @@ const CATEGORY_CREATE_PATH = '/api/categorys';
 const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
+const CATEGORY_ENTRY_FAVORITE_PATH = '/api/categorys/entries/favorite';
 const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 type ConfigKey = keyof typeof CONFIG_FILE_MAP;
@@ -487,6 +488,7 @@ export default defineConfig({
                   typeof payload.negative_prompt === 'string' ? payload.negative_prompt : '',
                 loras: typeof payload.loras === 'string' ? payload.loras : '',
                 image_path: imagePath,
+                favorite: false,
                 ...(typeof payload.model === 'string' && payload.model.trim()
                   ? { model: payload.model.trim() }
                   : {}),
@@ -514,6 +516,91 @@ export default defineConfig({
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ message: 'Could not create category entry.' }));
+            }
+            return;
+          }
+
+          if (parsedUrl.pathname === CATEGORY_ENTRY_FAVORITE_PATH) {
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.setHeader('Allow', 'POST');
+              res.end();
+              return;
+            }
+
+            const rootDir = PROJECT_ROOT;
+            const categoryDir = path.resolve(rootDir, 'data', 'categorys');
+
+            await mkdir(categoryDir, { recursive: true });
+
+            try {
+              const payload = (await readRequestBody(req)) as {
+                categoryId?: unknown;
+                entryName?: unknown;
+                favorite?: unknown;
+              };
+
+              const categoryId =
+                typeof payload.categoryId === 'string' ? payload.categoryId.trim() : '';
+              const entryName =
+                typeof payload.entryName === 'string' ? payload.entryName.trim() : '';
+              const favorite = payload.favorite === true;
+
+              if (!categoryId || !entryName) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'categoryId and entryName are required.' }));
+                return;
+              }
+
+              const categoryPath = path.resolve(categoryDir, `${categoryId}.json`);
+              if (!(await pathExists(categoryPath))) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'Category file was not found.' }));
+                return;
+              }
+
+              const rawContent = await readFile(categoryPath, 'utf8');
+              const parsed = JSON.parse(rawContent.replace(/^\uFEFF/, '')) as {
+                templates?: Record<string, unknown>;
+                [key: string]: unknown;
+              };
+
+              const templates =
+                parsed.templates && typeof parsed.templates === 'object' ? parsed.templates : {};
+
+              const matchedKey = Object.keys(templates).find(
+                (templateKey) => templateKey.toLowerCase() === entryName.toLowerCase()
+              );
+
+              if (!matchedKey) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ message: 'Entry was not found in the category.' }));
+                return;
+              }
+
+              const currentEntry = templates[matchedKey];
+              const nextEntry =
+                currentEntry && typeof currentEntry === 'object'
+                  ? { ...currentEntry, favorite }
+                  : { favorite };
+
+              parsed.templates = {
+                ...templates,
+                [matchedKey]: nextEntry,
+              };
+
+              await writeFile(categoryPath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8');
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ categoryId, entryName: matchedKey, favorite }));
+            } catch {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ message: 'Could not update favorite state.' }));
             }
             return;
           }

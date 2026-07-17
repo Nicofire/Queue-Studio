@@ -2,6 +2,7 @@ const CATEGORY_CREATE_PATH = '/api/categorys';
 const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
+const CATEGORY_ENTRY_FAVORITE_PATH = '/api/categorys/entries/favorite';
 
 type CreateCategoryResponse = {
   id: string;
@@ -35,8 +36,15 @@ type CreateCategoryEntryResponse = {
     negative_prompt: string;
     loras: string;
     image_path: string;
+    favorite: boolean;
     model?: string;
   };
+};
+
+type ToggleFavoriteResponse = {
+  categoryId: string;
+  entryName: string;
+  favorite: boolean;
 };
 
 export async function createCategoryInProject(name: string): Promise<CreateCategoryResponse> {
@@ -140,4 +148,33 @@ export async function createCategoryEntryInProject(
   }
 
   return (await response.json()) as CreateCategoryEntryResponse;
+}
+
+export async function toggleCategoryEntryFavoriteInProject(
+  categoryId: string,
+  entryName: string,
+  favorite: boolean
+): Promise<ToggleFavoriteResponse> {
+  const response = await fetch(CATEGORY_ENTRY_FAVORITE_PATH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ categoryId, entryName, favorite }),
+  });
+
+  if (!response.ok) {
+    let message = `Could not update favorite (status ${response.status}).`;
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body.message) {
+        message = body.message;
+      }
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as ToggleFavoriteResponse;
 }
