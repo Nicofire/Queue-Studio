@@ -3,16 +3,30 @@ import { useState } from 'react';
 import { CategoryQueueSummary } from '../components/CategoryQueueSummary';
 import { CategoryTab } from '../components/CategoryTab';
 import { CategoryTileTab } from '../components/CategoryTileTab';
-import { loadCategories } from '../features/categories/categoryData';
-import { useCategorySelection } from '../features/categories/useCategorySelection';
+import type {
+  CategoryDefinition,
+  CategorySelectionMap,
+} from '../features/categories/categoryTypes';
 
-const categories = loadCategories();
+type TileViewPageProps = {
+  categories: CategoryDefinition[];
+  selectionByCategory: CategorySelectionMap;
+  toggleTemplate: (categoryId: string, templateId: string) => void;
+};
 
-const getDefaultActiveCategoryId = () => categories[0]?.id ?? '';
+const getDefaultActiveCategoryId = (categories: CategoryDefinition[]) => categories[0]?.id ?? '';
 
-export function TileViewPage() {
-  const [activeCategoryId, setActiveCategoryId] = useState(getDefaultActiveCategoryId);
-  const { selectionByCategory, toggleTemplate } = useCategorySelection();
+export function TileViewPage({
+  categories,
+  selectionByCategory,
+  toggleTemplate,
+}: TileViewPageProps) {
+  const [activeCategoryId, setActiveCategoryId] = useState(() =>
+    getDefaultActiveCategoryId(categories)
+  );
+  const activeCategoryIdForRender = categories.some((category) => category.id === activeCategoryId)
+    ? activeCategoryId
+    : getDefaultActiveCategoryId(categories);
 
   return (
     <>
@@ -25,7 +39,7 @@ export function TileViewPage() {
 
       <CategoryTab
         categories={categories}
-        activeCategoryId={activeCategoryId}
+        activeCategoryId={activeCategoryIdForRender}
         onCategoryChange={setActiveCategoryId}
       >
         {(activeCategory) => (

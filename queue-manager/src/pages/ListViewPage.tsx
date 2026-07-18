@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { AddCategoryEntryModal } from '../components/AddCategoryEntryModal';
 import { AddCategoryModal } from '../components/AddCategoryModal';
@@ -11,17 +11,30 @@ import {
   reorderCategorysInProject,
   toggleCategoryEntryFavoriteInProject,
 } from '../features/categories/categoryApi';
-import { loadCategories } from '../features/categories/categoryData';
 import { filterCategoryTemplates } from '../features/categories/categoryFilters';
-import type { CategoryDefinition } from '../features/categories/categoryTypes';
-import { useCategorySelection } from '../features/categories/useCategorySelection';
+import type {
+  CategoryDefinition,
+  CategorySelectionMap,
+} from '../features/categories/categoryTypes';
 
 const getNextPlaceId = (categories: CategoryDefinition[]) =>
   categories.length === 0 ? 0 : Math.max(...categories.map((category) => category.placeId)) + 1;
 
-export function ListViewPage() {
-  const [categories, setCategories] = useState<CategoryDefinition[]>(() => loadCategories());
-  const { selectionByCategory, setSelectionByCategory, toggleTemplate } = useCategorySelection();
+type ListViewPageProps = {
+  categories: CategoryDefinition[];
+  setCategories: Dispatch<SetStateAction<CategoryDefinition[]>>;
+  selectionByCategory: CategorySelectionMap;
+  setSelectionByCategory: Dispatch<SetStateAction<CategorySelectionMap>>;
+  toggleTemplate: (categoryId: string, templateId: string) => void;
+};
+
+export function ListViewPage({
+  categories,
+  setCategories,
+  selectionByCategory,
+  setSelectionByCategory,
+  toggleTemplate,
+}: ListViewPageProps) {
   const [favoriteOnlyByCategory, setFavoriteOnlyByCategory] = useState<Record<string, boolean>>({});
   const [entrySearch, setEntrySearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);

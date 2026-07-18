@@ -1,10 +1,13 @@
+import type { CategoryDefinition } from './categoryTypes';
+
 const CATEGORY_CREATE_PATH = '/api/categorys';
 const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
 const CATEGORY_ENTRY_FAVORITE_PATH = '/api/categorys/entries/favorite';
+const CATEGORIES_LIST_PATH = '/api/categories';
 
-async function postJson<TResponse>(path: string, payload: unknown, errorPrefix: string) {
+async function postJson(path: string, payload: unknown, errorPrefix: string) {
   const response = await fetch(path, {
     method: 'POST',
     headers: {
@@ -12,6 +15,25 @@ async function postJson<TResponse>(path: string, payload: unknown, errorPrefix: 
     },
     body: JSON.stringify(payload),
   });
+
+  if (!response.ok) {
+    let message = `${errorPrefix} (status ${response.status}).`;
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body.message) {
+        message = body.message;
+      }
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  return response;
+}
+
+async function getJson(path: string, errorPrefix: string) {
+  const response = await fetch(path);
 
   if (!response.ok) {
     let message = `${errorPrefix} (status ${response.status}).`;
@@ -71,6 +93,16 @@ type ToggleFavoriteResponse = {
   entryName: string;
   favorite: boolean;
 };
+
+type CategoriesListResponse = {
+  categories: CategoryDefinition[];
+};
+
+export async function loadCategoriesFromProject(): Promise<CategoryDefinition[]> {
+  const response = await getJson(CATEGORIES_LIST_PATH, 'Could not load categories');
+  const body = (await response.json()) as CategoriesListResponse;
+  return Array.isArray(body.categories) ? body.categories : [];
+}
 
 export async function createCategoryInProject(name: string): Promise<CreateCategoryResponse> {
   const response = await postJson(CATEGORY_CREATE_PATH, { name }, 'Could not create category');
