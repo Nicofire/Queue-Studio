@@ -16,13 +16,25 @@ import {
 } from './SettingsPageComponents/settingsConfig';
 import type { GenerationSettings, PromptPresetGroup } from './SettingsPageComponents/settingsTypes';
 
+function getInitialGenerationSettings() {
+  const rootTheme = document.documentElement.dataset.theme;
+  const fallback: GenerationSettings = {
+    ...DEFAULT_GENERATION_SETTINGS,
+    theme:
+      rootTheme === 'dark' || rootTheme === 'light' ? rootTheme : DEFAULT_GENERATION_SETTINGS.theme,
+  };
+
+  const stored = readStoredJson<unknown>(STORAGE_KEYS.generationSettings);
+  return fromPersistedGenerationSettings(stored, fallback);
+}
+
 export function SettingsPage() {
   const [positivePresetGroup, setPositivePresetGroup] =
     useState<PromptPresetGroup>(DEFAULT_POSITIVE_PRESETS);
   const [negativePresetGroup, setNegativePresetGroup] =
     useState<PromptPresetGroup>(DEFAULT_NEGATIVE_PRESETS);
   const [generationSettings, setGenerationSettings] = useState<GenerationSettings>(
-    DEFAULT_GENERATION_SETTINGS
+    getInitialGenerationSettings
   );
   const [saveResult, setSaveResult] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
@@ -33,7 +45,7 @@ export function SettingsPage() {
       const [storedPositivePresets, storedNegativePresets, storedGenerationSettings] = [
         readStoredJson<PromptPresetGroup>(STORAGE_KEYS.positivePresets),
         readStoredJson<PromptPresetGroup>(STORAGE_KEYS.negativePresets),
-        readStoredJson<GenerationSettings>(STORAGE_KEYS.generationSettings),
+        readStoredJson<unknown>(STORAGE_KEYS.generationSettings),
       ];
 
       const [remotePositivePresets, remoteNegativePresets, remoteGenerationSettingsRaw] =
@@ -53,7 +65,8 @@ export function SettingsPage() {
       const nextNegativePresets =
         remoteNegativePresets ?? storedNegativePresets ?? DEFAULT_NEGATIVE_PRESETS;
       const nextGenerationSettings =
-        remoteGenerationSettings ?? storedGenerationSettings ?? DEFAULT_GENERATION_SETTINGS;
+        remoteGenerationSettings ??
+        fromPersistedGenerationSettings(storedGenerationSettings, DEFAULT_GENERATION_SETTINGS);
 
       setPositivePresetGroup(nextPositivePresets);
       setNegativePresetGroup(nextNegativePresets);
@@ -87,7 +100,9 @@ export function SettingsPage() {
   }, [hasHydratedSettings, generationSettings]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = generationSettings.theme;
+    if (document.documentElement.dataset.theme !== generationSettings.theme) {
+      document.documentElement.dataset.theme = generationSettings.theme;
+    }
   }, [generationSettings.theme]);
 
   return (
