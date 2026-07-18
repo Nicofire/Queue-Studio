@@ -501,7 +501,8 @@
 }
 
 .category-list-row:hover .template-hover-tooltip,
-.category-list-row:focus-within .template-hover-tooltip {
+.category-list-row:has(.template-checkbox:focus-visible) .template-hover-tooltip,
+.category-list-row:has(.favorite-toggle-button:focus-visible) .template-hover-tooltip {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
@@ -552,11 +553,17 @@
   grid-template-rows: auto auto;
   min-width: 0;
   overflow: hidden;
+  cursor: pointer;
+}
+
+.category-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .category-tile.is-selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 .category-tile-image {

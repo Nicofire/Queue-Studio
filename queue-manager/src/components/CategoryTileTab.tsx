@@ -36,9 +36,23 @@ function CategoryTile({
 }) {
   const [imageVisible, setImageVisible] = useState(Boolean(template.data.image_path));
   const imageSrc = mapImagePath(template.data.image_path);
+  const toggleSelection = () => onToggleTemplate(category.id, template.templateId);
 
   return (
-    <article className={isSelected ? 'category-tile is-selected' : 'category-tile'}>
+    <article
+      className={isSelected ? 'category-tile is-selected' : 'category-tile'}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`${isSelected ? 'Deselect' : 'Select'} ${template.title}`}
+      onClick={toggleSelection}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleSelection();
+        }
+      }}
+    >
       {imageVisible && imageSrc ? (
         <img
           className="category-tile-image"
@@ -56,14 +70,6 @@ function CategoryTile({
       <div className="category-tile-body">
         <div className="category-tile-title-row">
           <h3>{template.title}</h3>
-          <label className="template-tile-checkbox">
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => onToggleTemplate(category.id, template.templateId)}
-            />
-            Select
-          </label>
         </div>
 
         <p className="field-hint category-tile-prompt" title={template.data.positive_prompt || ''}>
