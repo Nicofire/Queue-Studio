@@ -1,7 +1,4 @@
-import type {
-  CategoryDefinition,
-  CategoryTemplateEntry,
-} from '../features/categories/categoryTypes';
+import type { CategoryDefinition } from '../features/categories/categoryTypes';
 
 type CategoryListTabProps = {
   category: CategoryDefinition;
@@ -12,14 +9,16 @@ type CategoryListTabProps = {
   searchQuery?: string;
 };
 
-const summarizeTemplate = (template: CategoryTemplateEntry) => {
-  const summaryParts = [
-    `LoRA: ${template.data.loras || '-'}`,
-    `Positive: ${template.data.positive_prompt || '-'}`,
-    `Negative: ${template.data.negative_prompt || '-'}`,
-  ].filter(Boolean);
+const mapImagePath = (imagePath: string) => {
+  if (!imagePath || imagePath === 'image.png') {
+    return '';
+  }
 
-  return summaryParts.join('\n') || 'No prompt data';
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+
+  return imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
 };
 
 export function CategoryListTab({
@@ -47,10 +46,10 @@ export function CategoryListTab({
     <div className="category-list-view" role="table" aria-label={`${category.title} templates`}>
       {filteredTemplates.map((template) => {
         const isChecked = selectedTemplateIds.includes(template.templateId);
-        const tooltipText = summarizeTemplate(template);
+        const imageSrc = mapImagePath(template.data.image_path);
 
         return (
-          <label className="category-list-row" key={template.templateId} title={tooltipText}>
+          <label className="category-list-row" key={template.templateId}>
             <input
               className="template-checkbox"
               type="checkbox"
@@ -79,6 +78,26 @@ export function CategoryListTab({
             >
               {template.data.favorite ? '★' : '☆'}
             </button>
+
+            <span className="template-hover-tooltip" role="tooltip" aria-hidden="true">
+              {imageSrc ? (
+                <img
+                  className="template-hover-tooltip-image"
+                  src={imageSrc}
+                  alt={`${template.title} preview`}
+                  loading="lazy"
+                />
+              ) : (
+                <span className="template-hover-tooltip-image placeholder">No preview image</span>
+              )}
+
+              <span className="template-hover-tooltip-text">
+                <strong>{template.title}</strong>
+                <span>LoRA: {template.data.loras || '-'}</span>
+                <span>Positive: {template.data.positive_prompt || '-'}</span>
+                <span>Negative: {template.data.negative_prompt || '-'}</span>
+              </span>
+            </span>
           </label>
         );
       })}

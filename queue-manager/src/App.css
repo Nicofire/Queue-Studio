@@ -434,6 +434,7 @@
   align-items: center;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
+  position: relative;
 }
 
 .category-list-row:last-child {
@@ -474,6 +475,68 @@
 
 .favorite-toggle-button:hover {
   color: #f59e0b;
+}
+
+.template-hover-tooltip {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: calc(100% + 8px);
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  z-index: 12;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 120ms ease,
+    visibility 120ms ease,
+    transform 120ms ease;
+}
+
+.category-list-row:hover .template-hover-tooltip,
+.category-list-row:focus-within .template-hover-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.template-hover-tooltip-image {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  background: rgba(148, 163, 184, 0.2);
+  border: 1px solid var(--border);
+}
+
+.template-hover-tooltip-image.placeholder {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.2;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.template-hover-tooltip-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text-h);
+  font-size: 0.84rem;
+}
+
+.template-hover-tooltip-text strong,
+.template-hover-tooltip-text span {
+  overflow-wrap: anywhere;
 }
 
 .category-tile-grid {
