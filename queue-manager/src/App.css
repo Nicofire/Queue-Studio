@@ -627,11 +627,15 @@
 .modal-card {
   width: min(500px, 100%);
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--bg) 88%, #ffffff 12%);
   box-shadow: var(--shadow);
   display: grid;
   gap: 12px;
   padding: 16px;
+}
+
+:root[data-theme='dark'] .modal-card {
+  background: color-mix(in srgb, var(--bg) 94%, #000000 6%);
 }
 
 .entry-modal {
