@@ -550,6 +550,8 @@
   background: rgba(255, 255, 255, 0.62);
   display: grid;
   grid-template-rows: auto auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .category-tile.is-selected {
@@ -558,6 +560,7 @@
 }
 
 .category-tile-image {
+  display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
   height: auto;
@@ -572,12 +575,16 @@
   place-items: center;
   color: var(--text);
   font-size: 0.9rem;
+  padding: 8px;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 .category-tile-body {
   padding: 10px 12px;
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .category-tile-title-row {
@@ -585,6 +592,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .category-tile-title-row h3 {
@@ -592,6 +600,11 @@
   font-size: 1rem;
   line-height: 1.2;
   color: var(--text-h);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .template-tile-checkbox {
@@ -599,6 +612,8 @@
   align-items: center;
   gap: 6px;
   font-size: 0.86rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .category-tile-prompt {
@@ -607,9 +622,14 @@
   line-height: 1.35;
   max-height: 68px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.5);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
 }
 
 :root[data-theme='dark'] .category-tile-prompt {
