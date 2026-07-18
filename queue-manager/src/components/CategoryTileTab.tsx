@@ -66,7 +66,9 @@ function CategoryTile({
           </label>
         </div>
 
-        <p className="field-hint">{template.data.positive_prompt || 'No positive prompt'}</p>
+        <p className="field-hint category-tile-prompt" title={template.data.positive_prompt || ''}>
+          {template.data.positive_prompt || 'No positive prompt'}
+        </p>
       </div>
     </article>
   );
