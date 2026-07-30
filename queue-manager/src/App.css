@@ -663,6 +663,131 @@
   overflow-x: auto;
 }
 
+.generation-dock {
+  position: fixed;
+  right: 22px;
+  bottom: 20px;
+  width: min(380px, calc(100vw - 20px));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.generation-dock-toggle,
+.generation-dock-panel {
+  pointer-events: auto;
+}
+
+.generation-dock-toggle {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 88%, #ffffff 12%);
+  color: var(--text-h);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.generation-dock-title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.generation-dock-meta {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.generation-dock-arrow {
+  font-weight: 700;
+  transition: transform 180ms ease;
+  transform-origin: center;
+}
+
+.generation-dock-arrow.is-open {
+  transform: rotate(90deg);
+}
+
+.generation-dock-panel {
+  border: 1px solid var(--border);
+  border-top: 0;
+  background: color-mix(in srgb, var(--bg) 90%, #ffffff 10%);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 10px;
+  padding: 0 14px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(8px);
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    padding 180ms ease;
+}
+
+.generation-dock-panel.is-visible {
+  padding: 12px 14px 14px;
+  max-height: 340px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.generation-progress-head {
+  display: grid;
+  gap: 8px;
+}
+
+.generation-progress-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.generation-progress-track {
+  height: 10px;
+  border: 1px solid var(--border);
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.generation-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  transition: width 220ms ease;
+}
+
+.generation-dock-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.generation-dock-actions .primary-button,
+.generation-dock-actions .secondary-button {
+  width: 100%;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .generation-dock {
+    right: 10px;
+    left: 10px;
+    width: auto;
+    bottom: 12px;
+  }
+
+  .generation-dock-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

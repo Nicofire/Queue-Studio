@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import './App.css';
 
+import { GenerationQueueDock } from './components/GenerationQueueDock';
 import { TabBar } from './components/TabBar';
 import { tabs, type TabName } from './components/tabs';
 import { loadCategoriesFromProject } from './features/categories/categoryApi';
@@ -77,6 +78,8 @@ function App() {
           {activeTab === 'Settings' ? <SettingsPage /> : null}
         </div>
       </section>
+
+      <GenerationQueueDock categories={categories} selectionByCategory={selectionByCategory} />
     </main>
   );
 }
