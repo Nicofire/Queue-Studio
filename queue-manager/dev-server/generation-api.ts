@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 
@@ -46,6 +46,10 @@ type NormalizedSettings = {
   seed: number;
 };
 
+type Txt2ImgResponse = {
+  images?: unknown;
+};
+
 let queueItems: QueueItem[] = [];
 let queueStatus: GenerationStatus = 'idle';
 let activeJobLabel: string | null = null;
@@ -58,6 +62,72 @@ let activeRequestController: AbortController | null = null;
 
 function normalizeApiUrl(apiUrl: string) {
   return apiUrl.trim().replace(/\/+$/, '');
+}
+
+function toLocalDateFolderName(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toSafeFileNamePart(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+}
+
+function detectImageExtension(buffer: Buffer) {
+  if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e) {
+    return '.png';
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return '.jpg';
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return '.webp';
+  }
+  if (buffer.length >= 2 && buffer[0] === 0x42 && buffer[1] === 0x4d) {
+    return '.bmp';
+  }
+  return '.png';
+}
+
+function decodeBase64Image(rawImage: string) {
+  const normalized = rawImage.trim().replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
+  const buffer = Buffer.from(normalized, 'base64');
+  if (buffer.length === 0) {
+    throw new Error('Generated image payload is empty.');
+  }
+
+  return {
+    buffer,
+    extension: detectImageExtension(buffer),
+  };
+}
+
+async function saveGeneratedImages(projectRoot: string, item: QueueItem, images: string[]) {
+  const outputDateDir = path.resolve(projectRoot, 'output', toLocalDateFolderName(new Date()));
+  await mkdir(outputDateDir, { recursive: true });
+
+  const safeIdPart = toSafeFileNamePart(item.id) || 'job';
+  const timestampPart = Date.now();
+
+  await Promise.all(
+    images.map(async (rawImage, index) => {
+      const { buffer, extension } = decodeBase64Image(rawImage);
+      const fileName = `${safeIdPart}-${timestampPart}-${String(index + 1).padStart(2, '0')}${extension}`;
+      const targetPath = path.resolve(outputDateDir, fileName);
+      await writeFile(targetPath, buffer);
+    })
+  );
 }
 
 function buildStatusPayload(): StatusPayload {
@@ -185,7 +255,18 @@ async function runTxt2ImgJob(projectRoot: string, item: QueueItem) {
       throw new Error(message);
     }
 
-    await response.json();
+    const body = (await response.json()) as Txt2ImgResponse;
+    const images = Array.isArray(body.images)
+      ? body.images.filter(
+          (image): image is string => typeof image === 'string' && image.trim().length > 0
+        )
+      : [];
+
+    if (images.length === 0) {
+      throw new Error('Automatic1111 response did not contain generated images.');
+    }
+
+    await saveGeneratedImages(projectRoot, item, images);
   } finally {
     clearTimeout(timeoutId);
     activeRequestController = null;
