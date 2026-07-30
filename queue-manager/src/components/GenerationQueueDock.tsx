@@ -10,6 +10,7 @@ import {
   addQueueToGeneration,
   clearGenerationQueue,
   getGenerationStatus,
+  openCurrentOutputFolder,
   pauseGeneration,
   startGeneration,
   type GenerationQueueItemPayload,
@@ -241,6 +242,18 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
     }
   };
 
+  const handleOpenOutputFolder = async () => {
+    try {
+      setIsSyncing(true);
+      await openCurrentOutputFolder();
+      setStatusMessage("Opened today's output folder.");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Could not open output folder.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleAbort = async () => {
     try {
       setIsSyncing(true);
@@ -312,6 +325,14 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
               disabled={isSyncing}
             >
               Start Generate
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleOpenOutputFolder()}
+              disabled={isSyncing}
+            >
+              Open Output
             </button>
             <button
               className="secondary-button"

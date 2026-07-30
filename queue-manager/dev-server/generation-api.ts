@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
@@ -10,6 +11,7 @@ export const GENERATION_QUEUE_CLEAR_PATH = '/api/generation/queue/clear';
 export const GENERATION_START_PATH = '/api/generation/start';
 export const GENERATION_PAUSE_PATH = '/api/generation/pause';
 export const GENERATION_ABORT_PATH = '/api/generation/abort';
+export const GENERATION_OPEN_OUTPUT_PATH = '/api/generation/output/open-today';
 
 const MAX_JSON_BODY_BYTES = 1_500_000;
 const JOB_TIMEOUT_MS = 180_000;
@@ -128,6 +130,26 @@ async function saveGeneratedImages(projectRoot: string, item: QueueItem, images:
       await writeFile(targetPath, buffer);
     })
   );
+}
+
+async function getCurrentOutputDir(projectRoot: string) {
+  const outputDateDir = path.resolve(projectRoot, 'output', toLocalDateFolderName(new Date()));
+  await mkdir(outputDateDir, { recursive: true });
+  return outputDateDir;
+}
+
+async function openFolderInFileExplorer(folderPath: string) {
+  if (process.platform === 'win32') {
+    spawn('explorer.exe', [folderPath], { detached: true, stdio: 'ignore' }).unref();
+    return;
+  }
+
+  if (process.platform === 'darwin') {
+    spawn('open', [folderPath], { detached: true, stdio: 'ignore' }).unref();
+    return;
+  }
+
+  spawn('xdg-open', [folderPath], { detached: true, stdio: 'ignore' }).unref();
 }
 
 function buildStatusPayload(): StatusPayload {
@@ -536,6 +558,29 @@ async function handleAbort(req: IncomingMessage, res: ServerResponse) {
   return true;
 }
 
+async function handleOpenTodayOutput(
+  req: IncomingMessage,
+  res: ServerResponse,
+  projectRoot: string
+) {
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'POST');
+    res.end();
+    return true;
+  }
+
+  try {
+    const outputDir = await getCurrentOutputDir(projectRoot);
+    await openFolderInFileExplorer(outputDir);
+    sendJson(res, 200, { ok: true, outputDir });
+  } catch {
+    sendJson(res, 500, { message: 'Could not open output folder.' });
+  }
+
+  return true;
+}
+
 export async function handleGenerationRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -559,6 +604,9 @@ export async function handleGenerationRequest(
   }
   if (parsedUrl.pathname === GENERATION_ABORT_PATH) {
     return await handleAbort(req, res);
+  }
+  if (parsedUrl.pathname === GENERATION_OPEN_OUTPUT_PATH) {
+    return await handleOpenTodayOutput(req, res, projectRoot);
   }
 
   return false;

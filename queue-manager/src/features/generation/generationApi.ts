@@ -30,6 +30,7 @@ const GENERATION_QUEUE_CLEAR_PATH = '/api/generation/queue/clear';
 const GENERATION_START_PATH = '/api/generation/start';
 const GENERATION_PAUSE_PATH = '/api/generation/pause';
 const GENERATION_ABORT_PATH = '/api/generation/abort';
+const GENERATION_OPEN_OUTPUT_PATH = '/api/generation/output/open-today';
 
 async function readErrorMessage(response: Response, fallback: string) {
   try {
@@ -92,4 +93,20 @@ export async function pauseGeneration(): Promise<GenerationStatusResponse> {
 
 export async function abortGeneration(): Promise<GenerationStatusResponse> {
   return await postJson(GENERATION_ABORT_PATH, {});
+}
+
+export async function openCurrentOutputFolder(): Promise<void> {
+  const response = await fetch(GENERATION_OPEN_OUTPUT_PATH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(response, `Could not open output folder (${response.status}).`)
+    );
+  }
 }
