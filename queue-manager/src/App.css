@@ -2,15 +2,19 @@
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
 .top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   justify-content: flex-start;
-  padding: 0;
+  padding: 12px 24px;
+  background: var(--bg);
 }
 
 .tab-list {
@@ -59,7 +63,7 @@
 .workspace {
   flex: 1;
   display: grid;
-  padding: 0 24px 24px;
+  padding: 16px 24px 24px;
 }
 
 .workspace-panel {
