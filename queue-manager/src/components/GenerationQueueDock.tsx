@@ -1,34 +1,40 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type {
   CategoryDefinition,
   CategorySelectionMap,
 } from '../features/categories/categoryTypes';
 import { buildQueueCombinations } from '../features/categories/queueBuilder';
-
-type QueueStatus = 'idle' | 'running' | 'paused' | 'aborted' | 'completed';
-
-type QueueItem = {
-  id: string;
-  summary: string;
-};
+import {
+  abortGeneration,
+  addQueueToGeneration,
+  clearGenerationQueue,
+  getGenerationStatus,
+  pauseGeneration,
+  startGeneration,
+  type GenerationQueueItemPayload,
+  type GenerationQueueItemPreview,
+  type GenerationStatus,
+  type GenerationStatusResponse,
+} from '../features/generation/generationApi';
 
 type GenerationQueueDockProps = {
   categories: CategoryDefinition[];
   selectionByCategory: CategorySelectionMap;
 };
 
-const STEP_DURATION_MS = 850;
+const STATUS_POLL_INTERVAL_MS = 1500;
 
 export function GenerationQueueDock({ categories, selectionByCategory }: GenerationQueueDockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isQueueViewExpanded, setIsQueueViewExpanded] = useState(false);
-  const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
-  const [queueStatus, setQueueStatus] = useState<QueueStatus>('idle');
+  const [queueItems, setQueueItems] = useState<GenerationQueueItemPreview[]>([]);
+  const [queueStatus, setQueueStatus] = useState<GenerationStatus>('idle');
   const [activeJobLabel, setActiveJobLabel] = useState('');
   const [runTotal, setRunTotal] = useState(0);
   const [runCompleted, setRunCompleted] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const progressPercent =
     runTotal > 0 ? Math.min(100, Math.round((runCompleted / runTotal) * 100)) : 0;
@@ -63,60 +69,66 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
     return items;
   }, [activeJobLabel, queueItems]);
 
+  const applyBackendStatus = useCallback((status: GenerationStatusResponse) => {
+    setQueueItems(status.queuePreview);
+    setQueueStatus(status.status);
+    setActiveJobLabel(status.activeJobLabel ?? '');
+    setRunTotal(status.runTotal);
+    setRunCompleted(status.runCompleted);
+    if (status.lastError) {
+      setStatusMessage(status.lastError);
+    }
+  }, []);
+
   useEffect(() => {
-    if (queueStatus !== 'running') {
-      return;
-    }
+    let isMounted = true;
 
-    if (queueItems.length === 0) {
-      setQueueStatus('completed');
-      setActiveJobLabel('');
-      setStatusMessage('Generation finished.');
-      return;
-    }
-
-    const timerId = window.setTimeout(() => {
-      setQueueItems((current) => {
-        if (current.length === 0) {
-          return current;
+    const syncStatus = async () => {
+      try {
+        const status = await getGenerationStatus();
+        if (!isMounted) {
+          return;
         }
-
-        const [active, ...rest] = current;
-        setActiveJobLabel(active.summary);
-        setRunCompleted((currentCompleted) => currentCompleted + 1);
-
-        if (rest.length === 0) {
-          setQueueStatus('completed');
-          setStatusMessage('Generation finished.');
+        applyBackendStatus(status);
+      } catch (error) {
+        if (!isMounted) {
+          return;
         }
+        setStatusMessage(
+          error instanceof Error ? error.message : 'Could not fetch generation status.'
+        );
+      }
+    };
 
-        return rest;
-      });
-    }, STEP_DURATION_MS);
+    void syncStatus();
+    const pollId = window.setInterval(() => {
+      void syncStatus();
+    }, STATUS_POLL_INTERVAL_MS);
 
     return () => {
-      window.clearTimeout(timerId);
+      isMounted = false;
+      window.clearInterval(pollId);
     };
-  }, [queueStatus, queueItems]);
+  }, [applyBackendStatus]);
 
-  const handleAddQueue = () => {
-    if (isBusy) {
-      setStatusMessage('Pause or abort generation before adding new queue items.');
-      return;
-    }
-
+  const buildQueuePayloadFromSelection = (): GenerationQueueItemPayload[] => {
     const combinations = buildQueueCombinations(categories, selectionByCategory);
 
-    const templateByCategory = new Map(
+    const templatesByCategory = new Map(
       categories.map((category) => [
         category.id,
-        new Map(category.templates.map((template) => [template.templateId, template.title])),
+        new Map(category.templates.map((template) => [template.templateId, template])),
       ])
     );
 
-    const queueToAdd = combinations
+    return combinations
       .filter((combination) => Object.values(combination).some((templateId) => Boolean(templateId)))
       .map((combination, index) => {
+        const positiveParts: string[] = [];
+        const negativeParts: string[] = [];
+        const loraParts: string[] = [];
+        let modelOverride = '';
+
         const summary = categories
           .map((category) => {
             const templateId = combination[category.id];
@@ -124,77 +136,122 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
               return `${category.title}: -`;
             }
 
-            const title = templateByCategory.get(category.id)?.get(templateId) ?? templateId;
-            return `${category.title}: ${title}`;
+            const template = templatesByCategory.get(category.id)?.get(templateId);
+            if (!template) {
+              return `${category.title}: ${templateId}`;
+            }
+
+            const positivePrompt = template.data.positive_prompt.trim();
+            const negativePrompt = template.data.negative_prompt.trim();
+            const loras = template.data.loras.trim();
+            const model = template.data.model?.trim() ?? '';
+
+            if (positivePrompt) {
+              positiveParts.push(positivePrompt);
+            }
+            if (negativePrompt) {
+              negativeParts.push(negativePrompt);
+            }
+            if (loras) {
+              loraParts.push(loras);
+            }
+            if (model) {
+              modelOverride = model;
+            }
+
+            return `${category.title}: ${template.title}`;
           })
           .join(' | ');
+
+        const prompt = [...positiveParts, ...loraParts].join(', ').trim();
 
         return {
           id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}`,
           summary,
-        } satisfies QueueItem;
-      });
+          prompt,
+          negativePrompt: negativeParts.join(', ').trim(),
+          ...(modelOverride ? { model: modelOverride } : {}),
+        } satisfies GenerationQueueItemPayload;
+      })
+      .filter((item) => item.prompt.length > 0);
+  };
+
+  const handleAddQueue = async () => {
+    if (isBusy) {
+      setStatusMessage('Pause or abort generation before adding new queue items.');
+      return;
+    }
+
+    const queueToAdd = buildQueuePayloadFromSelection();
 
     if (queueToAdd.length === 0) {
-      setStatusMessage('Select at least one entry before adding to queue.');
+      setStatusMessage('Select at least one entry with a positive prompt before adding to queue.');
       return;
     }
 
-    setQueueItems((current) => [...current, ...queueToAdd]);
-    setQueueStatus('idle');
-    setStatusMessage(`Added ${queueToAdd.length} item(s) to queue.`);
+    try {
+      setIsSyncing(true);
+      const status = await addQueueToGeneration(queueToAdd);
+      applyBackendStatus(status);
+      setStatusMessage(`Added ${queueToAdd.length} item(s) to backend queue.`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Could not add queue items.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
-  const handleClearQueue = () => {
-    setQueueItems([]);
-    setActiveJobLabel('');
-    setRunTotal(0);
-    setRunCompleted(0);
-    setQueueStatus('idle');
-    setStatusMessage('Queue cleared.');
+  const handleClearQueue = async () => {
+    try {
+      setIsSyncing(true);
+      const status = await clearGenerationQueue();
+      applyBackendStatus(status);
+      setStatusMessage('Backend queue cleared.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Could not clear queue.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
-  const handleStartGenerate = () => {
-    if (queueStatus === 'running') {
-      return;
+  const handleStartGenerate = async () => {
+    try {
+      setIsSyncing(true);
+      const wasPaused = queueStatus === 'paused';
+      const status = await startGeneration();
+      applyBackendStatus(status);
+      setStatusMessage(wasPaused ? 'Generation resumed.' : 'Generation started.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Could not start generation.');
+    } finally {
+      setIsSyncing(false);
     }
-
-    if (queueStatus === 'paused') {
-      setQueueStatus('running');
-      setStatusMessage('Generation resumed.');
-      return;
-    }
-
-    if (queueItems.length === 0) {
-      setStatusMessage('Queue is empty. Add queue items first.');
-      return;
-    }
-
-    setRunTotal(queueItems.length);
-    setRunCompleted(0);
-    setQueueStatus('running');
-    setStatusMessage('Generation started.');
   };
 
-  const handlePause = () => {
-    if (queueStatus !== 'running') {
-      return;
+  const handlePause = async () => {
+    try {
+      setIsSyncing(true);
+      const status = await pauseGeneration();
+      applyBackendStatus(status);
+      setStatusMessage('Generation paused.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Could not pause generation.');
+    } finally {
+      setIsSyncing(false);
     }
-
-    setQueueStatus('paused');
-    setStatusMessage('Generation paused.');
   };
 
-  const handleAbort = () => {
-    if (queueStatus !== 'running' && queueStatus !== 'paused') {
-      return;
+  const handleAbort = async () => {
+    try {
+      setIsSyncing(true);
+      const status = await abortGeneration();
+      applyBackendStatus(status);
+      setStatusMessage('Generation aborted.');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Could not abort generation.');
+    } finally {
+      setIsSyncing(false);
     }
-
-    setQueueStatus('aborted');
-    setActiveJobLabel('');
-    setRunTotal(0);
-    setRunCompleted(0);
-    setStatusMessage('Generation aborted.');
   };
 
   return (
@@ -235,30 +292,40 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
             <button
               className="secondary-button"
               type="button"
-              onClick={handleAddQueue}
-              disabled={isBusy}
+              onClick={() => void handleAddQueue()}
+              disabled={isBusy || isSyncing}
             >
               Add Queue
             </button>
-            <button className="secondary-button" type="button" onClick={handleClearQueue}>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleClearQueue()}
+              disabled={isSyncing}
+            >
               Clear Queue
             </button>
-            <button className="primary-button" type="button" onClick={handleStartGenerate}>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => void handleStartGenerate()}
+              disabled={isSyncing}
+            >
               Start Generate
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={handlePause}
-              disabled={queueStatus !== 'running'}
+              onClick={() => void handlePause()}
+              disabled={queueStatus !== 'running' || isSyncing}
             >
               Pause
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={handleAbort}
-              disabled={queueStatus !== 'running' && queueStatus !== 'paused'}
+              onClick={() => void handleAbort()}
+              disabled={(queueStatus !== 'running' && queueStatus !== 'paused') || isSyncing}
             >
               Abort
             </button>

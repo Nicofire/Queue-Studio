@@ -3,6 +3,7 @@ import type { PluginOption } from 'vite';
 import { handleAutomatic1111Request } from './automatic1111-api';
 import { handleCategorysRequest } from './categorys-api';
 import { handleConfigFilesRequest } from './config-files-api';
+import { handleGenerationRequest } from './generation-api';
 
 export function createProjectApiPlugin(projectRoot: string): PluginOption {
   return {
@@ -21,6 +22,10 @@ export function createProjectApiPlugin(projectRoot: string): PluginOption {
         }
 
         if (await handleConfigFilesRequest(req, res, requestUrl, projectRoot)) {
+          return;
+        }
+
+        if (await handleGenerationRequest(req, res, parsedUrl, projectRoot)) {
           return;
         }
 
