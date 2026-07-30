@@ -22,6 +22,7 @@ const STEP_DURATION_MS = 850;
 
 export function GenerationQueueDock({ categories, selectionByCategory }: GenerationQueueDockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isQueueViewExpanded, setIsQueueViewExpanded] = useState(false);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [queueStatus, setQueueStatus] = useState<QueueStatus>('idle');
   const [activeJobLabel, setActiveJobLabel] = useState('');
@@ -48,6 +49,19 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
     }
     return 'Idle';
   }, [queueStatus, runCompleted, runTotal]);
+
+  const visibleQueueItems = useMemo(() => {
+    const items = [...queueItems];
+
+    if (activeJobLabel) {
+      items.unshift({
+        id: 'active-job',
+        summary: `${activeJobLabel} (current)`,
+      });
+    }
+
+    return items;
+  }, [activeJobLabel, queueItems]);
 
   useEffect(() => {
     if (queueStatus !== 'running') {
@@ -127,9 +141,7 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
     }
 
     setQueueItems((current) => [...current, ...queueToAdd]);
-    if (queueStatus !== 'running' && queueStatus !== 'paused') {
-      setQueueStatus('idle');
-    }
+    setQueueStatus('idle');
     setStatusMessage(`Added ${queueToAdd.length} item(s) to queue.`);
   };
 
@@ -186,74 +198,113 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
   };
 
   return (
-    <aside className={isExpanded ? 'generation-dock is-expanded' : 'generation-dock'}>
-      <button
-        type="button"
-        className="generation-dock-toggle"
-        aria-expanded={isExpanded}
-        onClick={() => setIsExpanded((current) => !current)}
-      >
-        <span className="generation-dock-title">Generation Queue</span>
-        <span className="generation-dock-meta">{queueItems.length} pending</span>
-        <span className={isExpanded ? 'generation-dock-arrow is-open' : 'generation-dock-arrow'}>
-          {'>'}
-        </span>
-      </button>
+    <>
+      <aside className={isExpanded ? 'generation-dock is-expanded' : 'generation-dock'}>
+        <button
+          type="button"
+          className="generation-dock-toggle"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((current) => !current)}
+        >
+          <span className="generation-dock-title">Generation Queue</span>
+          <span className="generation-dock-meta">{queueItems.length} pending</span>
+          <span className={isExpanded ? 'generation-dock-arrow is-open' : 'generation-dock-arrow'}>
+            {'>'}
+          </span>
+        </button>
 
-      <div className={isExpanded ? 'generation-dock-panel is-visible' : 'generation-dock-panel'}>
-        <div className="generation-progress-head">
-          <div className="generation-progress-row">
-            <span className="field-hint">{statusText}</span>
-            <span className="field-hint">{progressPercent}%</span>
+        <div className={isExpanded ? 'generation-dock-panel is-visible' : 'generation-dock-panel'}>
+          <div className="generation-progress-head">
+            <div className="generation-progress-row">
+              <span className="field-hint">{statusText}</span>
+              <span className="field-hint">{progressPercent}%</span>
+            </div>
+            <div
+              className="generation-progress-track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progressPercent}
+              aria-label="Generation progress"
+            >
+              <div className="generation-progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
-          <div
-            className="generation-progress-track"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progressPercent}
-            aria-label="Generation progress"
-          >
-            <div className="generation-progress-fill" style={{ width: `${progressPercent}%` }} />
+
+          <div className="generation-dock-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handleAddQueue}
+              disabled={isBusy}
+            >
+              Add Queue
+            </button>
+            <button className="secondary-button" type="button" onClick={handleClearQueue}>
+              Clear Queue
+            </button>
+            <button className="primary-button" type="button" onClick={handleStartGenerate}>
+              Start Generate
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handlePause}
+              disabled={queueStatus !== 'running'}
+            >
+              Pause
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handleAbort}
+              disabled={queueStatus !== 'running' && queueStatus !== 'paused'}
+            >
+              Abort
+            </button>
           </div>
-        </div>
 
-        <div className="generation-dock-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={handleAddQueue}
-            disabled={isBusy}
-          >
-            Add Queue
-          </button>
-          <button className="secondary-button" type="button" onClick={handleClearQueue}>
-            Clear Queue
-          </button>
-          <button className="primary-button" type="button" onClick={handleStartGenerate}>
-            Start Generate
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={handlePause}
-            disabled={queueStatus !== 'running'}
-          >
-            Pause
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={handleAbort}
-            disabled={queueStatus !== 'running' && queueStatus !== 'paused'}
-          >
-            Abort
-          </button>
+          {activeJobLabel ? <p className="field-hint">Current: {activeJobLabel}</p> : null}
+          {statusMessage ? <p className="field-hint">{statusMessage}</p> : null}
         </div>
+      </aside>
 
-        {activeJobLabel ? <p className="field-hint">Current: {activeJobLabel}</p> : null}
-        {statusMessage ? <p className="field-hint">{statusMessage}</p> : null}
-      </div>
-    </aside>
+      <aside className={isQueueViewExpanded ? 'queue-view-dock is-expanded' : 'queue-view-dock'}>
+        <button
+          type="button"
+          className="queue-view-dock-toggle"
+          aria-expanded={isQueueViewExpanded}
+          onClick={() => setIsQueueViewExpanded((current) => !current)}
+        >
+          <span className="generation-dock-title">Current Queue</span>
+          <span className="generation-dock-meta">{visibleQueueItems.length} item(s)</span>
+          <span
+            className={
+              isQueueViewExpanded ? 'generation-dock-arrow is-open' : 'generation-dock-arrow'
+            }
+          >
+            {'>'}
+          </span>
+        </button>
+
+        <div
+          className={
+            isQueueViewExpanded ? 'queue-view-dock-panel is-visible' : 'queue-view-dock-panel'
+          }
+        >
+          {visibleQueueItems.length === 0 ? (
+            <p className="field-hint">Queue is currently empty.</p>
+          ) : (
+            <ol className="queue-view-list">
+              {visibleQueueItems.map((item) => (
+                <li key={item.id} className="queue-view-item" title={item.summary}>
+                  {item.summary}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }
