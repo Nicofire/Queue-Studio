@@ -17,9 +17,6 @@ import type {
 import { useCategoryEntryActions } from '../features/categories/useCategoryEntryActions';
 import { toggleSelectAllInCategory } from '../features/categories/useCategorySelection';
 
-const getNextPlaceId = (categories: CategoryDefinition[]) =>
-  categories.length === 0 ? 0 : Math.max(...categories.map((category) => category.placeId)) + 1;
-
 type ListViewPageProps = {
   categories: CategoryDefinition[];
   setCategories: Dispatch<SetStateAction<CategoryDefinition[]>>;
@@ -357,19 +354,6 @@ export function ListViewPage({
 
   return (
     <>
-      <p className="panel-label">List View</p>
-      <h2>Category columns by placeId</h2>
-      <p className="subtitle">
-        Every category is shown as its own column, ordered by placeId from data/categorys/*.json.
-      </p>
-
-      <div className="category-strip-toolbar">
-        <p className="field-hint">Next available placeId: {getNextPlaceId(categories)} (0 based)</p>
-        <button className="secondary-button" type="button" onClick={handleOpenAddModal}>
-          + Add Category
-        </button>
-      </div>
-
       <div className="category-search-row">
         <label className="field-group" htmlFor="category-entry-search">
           <span className="field-label">Search Entries</span>
@@ -382,11 +366,10 @@ export function ListViewPage({
             onChange={(event) => setEntrySearch(event.target.value)}
           />
         </label>
-        {normalizedSearch ? (
-          <p className="field-hint">Matches: {matchingEntryCount}</p>
-        ) : (
-          <p className="field-hint">Showing all entries.</p>
-        )}
+        {normalizedSearch ? <p className="field-hint">Matches: {matchingEntryCount}</p> : null}
+        <button className="secondary-button" type="button" onClick={handleOpenAddModal}>
+          + Add Category
+        </button>
       </div>
 
       <section

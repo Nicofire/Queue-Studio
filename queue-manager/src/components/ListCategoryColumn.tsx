@@ -136,7 +136,6 @@ export function ListCategoryColumn({
             </button>
           ) : null}
         </div>
-        <p className="field-hint">placeId: {category.placeId}</p>
         <div className="category-column-filters">
           <button
             type="button"

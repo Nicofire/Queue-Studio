@@ -60,12 +60,12 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="top-bar" aria-label="Main navigation tabs">
-        <TabBar activeTab={activeTab} tabs={tabs} onTabChange={setActiveTab} />
-      </header>
-
       <section className="workspace" aria-live="polite">
         <div className="workspace-panel">
+          <header className="workspace-header" aria-label="Main navigation tabs">
+            <TabBar activeTab={activeTab} tabs={tabs} onTabChange={setActiveTab} />
+          </header>
+
           {categoriesError ? <p className="field-hint is-error">{categoriesError}</p> : null}
           {activeTab === 'List View' ? (
             <ListViewPage

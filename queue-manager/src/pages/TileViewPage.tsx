@@ -69,13 +69,6 @@ export function TileViewPage({
 
   return (
     <>
-      <p className="panel-label">Tile View</p>
-      <h2>Category tiles with shared tab logic</h2>
-      <p className="subtitle">
-        Same category source and queue ordering as list view, but with a tile component for visual
-        browsing.
-      </p>
-
       <CategoryTab
         categories={categories}
         activeCategoryId={activeCategoryIdForRender}
@@ -90,9 +83,7 @@ export function TileViewPage({
           const selectedTemplateIds = selectionByCategory[activeCategory.id] ?? [];
           const allVisibleSelected =
             visibleTemplates.length > 0 &&
-            visibleTemplates.every((template) =>
-              selectedTemplateIds.includes(template.templateId)
-            );
+            visibleTemplates.every((template) => selectedTemplateIds.includes(template.templateId));
 
           return (
             <>

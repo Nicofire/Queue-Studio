@@ -7,25 +7,10 @@
   box-sizing: border-box;
 }
 
-.top-bar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  justify-content: flex-start;
-  padding: 12px 24px;
-  background: var(--bg);
-}
-
 .tab-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  gap: 6px;
 }
 
 .tab-button {
@@ -35,7 +20,7 @@
   color: var(--text);
   font: inherit;
   font-weight: 600;
-  padding: 12px 18px;
+  padding: 8px 16px;
   border-radius: 0;
   cursor: pointer;
   transition:
@@ -57,25 +42,37 @@
 .tab-button.is-active {
   background: var(--accent);
   color: white;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
 }
 
 .workspace {
   flex: 1;
   display: grid;
-  padding: 16px 24px 24px;
+  padding: 12px 16px 16px;
 }
 
 .workspace-panel {
   min-height: 320px;
-  padding: 40px;
+  padding: 0 18px 18px;
   border: 1px solid var(--border);
-  border-radius: 24px;
+  border-radius: 16px;
   background: var(--surface);
   box-shadow: var(--shadow);
   display: grid;
   align-content: start;
   gap: 12px;
+}
+
+/* Bleeds to the panel edges so the sticky tabs cover content scrolling underneath. */
+.workspace-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: 0 -18px;
+  padding: 8px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
 }
 
 .panel-label {
@@ -326,18 +323,20 @@
   scrollbar-gutter: stable;
 }
 
-.category-strip-toolbar {
+.category-search-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 12px;
 }
 
-.category-search-row {
-  display: grid;
-  grid-template-columns: minmax(280px, 540px) auto;
-  align-items: end;
-  gap: 12px;
+.category-search-row .field-group {
+  flex: 1 1 240px;
+  max-width: 480px;
+}
+
+.category-search-row .secondary-button {
+  margin-left: auto;
 }
 
 .category-column {
@@ -1107,8 +1106,14 @@
   }
 
   .workspace-panel {
-    padding: 24px;
-    border-radius: 20px;
+    padding: 0 14px 14px;
+    border-radius: 14px;
+  }
+
+  .workspace-header {
+    margin: 0 -14px;
+    padding: 8px 14px;
+    border-radius: 14px 14px 0 0;
   }
 
   .settings-grid.two-columns {
@@ -1140,12 +1145,16 @@
     grid-auto-columns: minmax(240px, calc(100vw - 64px));
   }
 
-  .category-strip-toolbar {
-    align-items: stretch;
+  .category-search-row {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .category-search-row {
-    grid-template-columns: 1fr;
+  .category-search-row .field-group {
+    max-width: none;
+  }
+
+  .category-search-row .secondary-button {
+    margin-left: 0;
   }
 }
