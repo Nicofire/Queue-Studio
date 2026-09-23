@@ -126,6 +126,21 @@
   background: rgba(255, 255, 255, 0.5);
 }
 
+.effective-prompt-preview {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  padding: 10px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.04);
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme='dark'] .effective-prompt-preview {
+  background: rgba(15, 23, 42, 0.55);
+}
+
 .preset-card h3 {
   margin: 0;
   color: var(--text-h);

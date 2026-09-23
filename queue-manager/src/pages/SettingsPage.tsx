@@ -1,6 +1,7 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 
 import { Automatic1111ConnectionSection } from './SettingsPageComponents/Automatic1111ConnectionSection';
+import { EffectivePromptSection } from './SettingsPageComponents/EffectivePromptSection';
 import { PromptPresetsSection } from './SettingsPageComponents/PromptPresetsSection';
 import type { GenerationSettings, PromptPresetGroup } from './SettingsPageComponents/settingsTypes';
 
@@ -33,6 +34,11 @@ export function SettingsPage({
         setNegativePresetGroup={setNegativePresetGroup}
         setSaveResult={setSaveResult}
         setSaveError={setSaveError}
+      />
+
+      <EffectivePromptSection
+        positivePresetGroup={positivePresetGroup}
+        negativePresetGroup={negativePresetGroup}
       />
 
       <Automatic1111ConnectionSection
