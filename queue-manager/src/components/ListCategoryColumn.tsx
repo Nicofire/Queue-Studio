@@ -26,6 +26,7 @@ type ListCategoryColumnProps = {
   onToggleFavoriteOnly: () => void;
   onToggleTemplate: (categoryId: string, templateId: string) => void;
   onToggleFavorite: (categoryId: string, templateId: string, favorite: boolean) => void;
+  onEditTemplate: (categoryId: string, templateId: string) => void;
 };
 
 export function ListCategoryColumn({
@@ -52,6 +53,7 @@ export function ListCategoryColumn({
   onToggleFavoriteOnly,
   onToggleTemplate,
   onToggleFavorite,
+  onEditTemplate,
 }: ListCategoryColumnProps) {
   const visibleTemplates = filterCategoryTemplates(category, searchQuery, favoriteOnly);
   const allVisibleSelected =
@@ -159,6 +161,7 @@ export function ListCategoryColumn({
           selectedTemplateIds={selectedTemplateIds}
           onToggleTemplate={onToggleTemplate}
           onToggleFavorite={onToggleFavorite}
+          onEditTemplate={onEditTemplate}
           favoriteOnly={favoriteOnly}
           searchQuery={searchQuery}
         />

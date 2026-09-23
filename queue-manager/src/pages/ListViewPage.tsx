@@ -1,15 +1,20 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
-import { AddCategoryEntryModal } from '../components/AddCategoryEntryModal';
 import { AddCategoryModal } from '../components/AddCategoryModal';
+import {
+  CategoryEntryModal,
+  type CategoryEntryFormPayload,
+} from '../components/CategoryEntryModal';
 import { CategoryQueueSummary } from '../components/CategoryQueueSummary';
 import { ListCategoryColumn } from '../components/ListCategoryColumn';
 import {
   createCategoryEntryInProject,
   createCategoryInProject,
+  deleteCategoryEntryInProject,
   renameCategoryInProject,
   reorderCategorysInProject,
   toggleCategoryEntryFavoriteInProject,
+  updateCategoryEntryInProject,
 } from '../features/categories/categoryApi';
 import { filterCategoryTemplates } from '../features/categories/categoryFilters';
 import type {
@@ -26,6 +31,7 @@ type ListViewPageProps = {
   selectionByCategory: CategorySelectionMap;
   setSelectionByCategory: Dispatch<SetStateAction<CategorySelectionMap>>;
   toggleTemplate: (categoryId: string, templateId: string) => void;
+  automaticApiUrl: string;
 };
 
 export function ListViewPage({
@@ -34,6 +40,7 @@ export function ListViewPage({
   selectionByCategory,
   setSelectionByCategory,
   toggleTemplate,
+  automaticApiUrl,
 }: ListViewPageProps) {
   const [favoriteOnlyByCategory, setFavoriteOnlyByCategory] = useState<Record<string, boolean>>({});
   const [entrySearch, setEntrySearch] = useState('');
@@ -49,8 +56,10 @@ export function ListViewPage({
   const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
   const [dragError, setDragError] = useState<string | null>(null);
   const [entryModalCategoryId, setEntryModalCategoryId] = useState<string | null>(null);
+  const [entryModalTemplateId, setEntryModalTemplateId] = useState<string | null>(null);
   const [entryModalError, setEntryModalError] = useState<string | null>(null);
   const [isSavingEntry, setIsSavingEntry] = useState(false);
+  const [isDeletingEntry, setIsDeletingEntry] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const stripRef = useRef<HTMLElement | null>(null);
   const normalizedSearch = entrySearch.trim().toLowerCase();
@@ -323,11 +332,19 @@ export function ListViewPage({
 
   const handleOpenAddEntryModal = (categoryId: string) => {
     setEntryModalError(null);
+    setEntryModalTemplateId(null);
+    setEntryModalCategoryId(categoryId);
+  };
+
+  const handleOpenEditEntryModal = (categoryId: string, templateId: string) => {
+    setEntryModalError(null);
+    setEntryModalTemplateId(templateId);
     setEntryModalCategoryId(categoryId);
   };
 
   const handleCloseAddEntryModal = () => {
     setEntryModalCategoryId(null);
+    setEntryModalTemplateId(null);
     setEntryModalError(null);
   };
 
@@ -336,21 +353,18 @@ export function ListViewPage({
       ? null
       : (categories.find((category) => category.id === entryModalCategoryId) ?? null);
 
-  const handleSaveEntry = async (payload: {
-    entryName: string;
-    positive_prompt: string;
-    negative_prompt: string;
-    loras: string;
-    model?: string;
-    imageDataBase64?: string;
-    imageOriginalName?: string;
-  }) => {
-    if (!activeEntryCategory) {
-      setEntryModalError('Selected category was not found.');
-      return;
-    }
+  const activeEntryTemplate =
+    entryModalTemplateId === null
+      ? null
+      : (activeEntryCategory?.templates.find(
+          (template) => template.templateId === entryModalTemplateId
+        ) ?? null);
 
-    const duplicated = activeEntryCategory.templates.some(
+  const handleCreateEntry = async (
+    category: CategoryDefinition,
+    payload: CategoryEntryFormPayload
+  ) => {
+    const duplicated = category.templates.some(
       (template) => template.templateId.toLowerCase() === payload.entryName.trim().toLowerCase()
     );
 
@@ -359,45 +373,161 @@ export function ListViewPage({
       return;
     }
 
+    const created = await createCategoryEntryInProject({
+      categoryId: category.id,
+      entryName: payload.entryName,
+      positive_prompt: payload.positive_prompt,
+      negative_prompt: payload.negative_prompt,
+      loras: payload.loras,
+      model: payload.model,
+      imageDataBase64: payload.imageDataBase64,
+      imageOriginalName: payload.imageOriginalName,
+    });
+
+    setCategories((current) =>
+      current.map((item) =>
+        item.id === category.id
+          ? {
+              ...item,
+              templates: [...item.templates, created].sort((a, b) =>
+                a.title.localeCompare(b.title)
+              ),
+            }
+          : item
+      )
+    );
+
+    handleCloseAddEntryModal();
+  };
+
+  const handleUpdateEntry = async (
+    category: CategoryDefinition,
+    templateId: string,
+    payload: CategoryEntryFormPayload
+  ) => {
+    const newEntryName = payload.entryName.trim();
+    const duplicated = category.templates.some(
+      (template) =>
+        template.templateId !== templateId &&
+        template.templateId.toLowerCase() === newEntryName.toLowerCase()
+    );
+
+    if (duplicated) {
+      setEntryModalError('An entry with this name already exists in this category.');
+      return;
+    }
+
+    const updated = await updateCategoryEntryInProject({
+      categoryId: category.id,
+      entryName: templateId,
+      newEntryName,
+      positive_prompt: payload.positive_prompt,
+      negative_prompt: payload.negative_prompt,
+      loras: payload.loras,
+      model: payload.model,
+      imageDataBase64: payload.imageDataBase64,
+      imageOriginalName: payload.imageOriginalName,
+      removeImage: payload.removeImage,
+    });
+
+    setCategories((current) =>
+      current.map((item) =>
+        item.id === category.id
+          ? {
+              ...item,
+              templates: item.templates
+                .map((template) => (template.templateId === templateId ? updated : template))
+                .sort((a, b) => a.title.localeCompare(b.title)),
+            }
+          : item
+      )
+    );
+
+    if (updated.templateId !== templateId) {
+      setSelectionByCategory((current) => {
+        const selected = current[category.id];
+        if (!selected?.includes(templateId)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [category.id]: selected.map((id) => (id === templateId ? updated.templateId : id)),
+        };
+      });
+    }
+
+    handleCloseAddEntryModal();
+  };
+
+  const handleSaveEntry = async (payload: CategoryEntryFormPayload) => {
+    if (!activeEntryCategory) {
+      setEntryModalError('Selected category was not found.');
+      return;
+    }
+
     setEntryModalError(null);
     setIsSavingEntry(true);
 
     try {
-      const created = await createCategoryEntryInProject({
-        categoryId: activeEntryCategory.id,
-        entryName: payload.entryName,
-        positive_prompt: payload.positive_prompt,
-        negative_prompt: payload.negative_prompt,
-        loras: payload.loras,
-        model: payload.model,
-        imageDataBase64: payload.imageDataBase64,
-        imageOriginalName: payload.imageOriginalName,
-      });
+      if (entryModalTemplateId) {
+        await handleUpdateEntry(activeEntryCategory, entryModalTemplateId, payload);
+      } else {
+        await handleCreateEntry(activeEntryCategory, payload);
+      }
+    } catch (error) {
+      setEntryModalError(
+        error instanceof Error ? error.message : 'Could not save the category entry.'
+      );
+    } finally {
+      setIsSavingEntry(false);
+    }
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!activeEntryCategory || !entryModalTemplateId) {
+      return;
+    }
+
+    const categoryId = activeEntryCategory.id;
+    const templateId = entryModalTemplateId;
+
+    setEntryModalError(null);
+    setIsDeletingEntry(true);
+
+    try {
+      await deleteCategoryEntryInProject(categoryId, templateId);
 
       setCategories((current) =>
-        current.map((category) => {
-          if (category.id !== activeEntryCategory.id) {
-            return category;
-          }
-
-          return {
-            ...category,
-            templates: [...category.templates, created].sort((a, b) =>
-              a.title.localeCompare(b.title)
-            ),
-          };
-        })
+        current.map((item) =>
+          item.id === categoryId
+            ? {
+                ...item,
+                templates: item.templates.filter((template) => template.templateId !== templateId),
+              }
+            : item
+        )
       );
+
+      setSelectionByCategory((current) => {
+        const selected = current[categoryId];
+        if (!selected?.includes(templateId)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [categoryId]: selected.filter((id) => id !== templateId),
+        };
+      });
 
       handleCloseAddEntryModal();
     } catch (error) {
-      if (error instanceof Error) {
-        setEntryModalError(error.message);
-      } else {
-        setEntryModalError('Could not create category entry.');
-      }
+      setEntryModalError(
+        error instanceof Error ? error.message : 'Could not delete the category entry.'
+      );
     } finally {
-      setIsSavingEntry(false);
+      setIsDeletingEntry(false);
     }
   };
 
@@ -546,6 +676,7 @@ export function ListViewPage({
             onToggleFavoriteOnly={() => handleToggleFavoriteOnly(category.id)}
             onToggleTemplate={toggleTemplate}
             onToggleFavorite={handleToggleFavorite}
+            onEditTemplate={handleOpenEditEntryModal}
           />
         ))}
       </section>
@@ -573,13 +704,18 @@ export function ListViewPage({
       ) : null}
 
       {activeEntryCategory ? (
-        <AddCategoryEntryModal
-          isOpen={Boolean(activeEntryCategory)}
+        <CategoryEntryModal
+          key={`${activeEntryCategory.id}:${entryModalTemplateId ?? 'new'}`}
+          mode={entryModalTemplateId ? 'edit' : 'create'}
           categoryTitle={activeEntryCategory.title}
+          entry={activeEntryTemplate}
+          automaticApiUrl={automaticApiUrl}
           errorMessage={entryModalError}
           isSaving={isSavingEntry}
+          isDeleting={isDeletingEntry}
           onClose={handleCloseAddEntryModal}
           onSave={handleSaveEntry}
+          onDelete={handleDeleteEntry}
         />
       ) : null}
     </>

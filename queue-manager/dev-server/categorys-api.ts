@@ -15,6 +15,7 @@ export const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 export const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 export const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
 export const CATEGORY_ENTRY_UPDATE_PATH = '/api/categorys/entries/update';
+export const CATEGORY_ENTRY_DELETE_PATH = '/api/categorys/entries/delete';
 export const CATEGORY_ENTRY_FAVORITE_PATH = '/api/categorys/entries/favorite';
 
 const CATEGORY_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -257,6 +258,9 @@ export async function handleCategorysRequest(
   }
   if (parsedUrl.pathname === CATEGORY_ENTRY_UPDATE_PATH) {
     return await handleCategoryEntryUpdate(req, res, projectRoot);
+  }
+  if (parsedUrl.pathname === CATEGORY_ENTRY_DELETE_PATH) {
+    return await handleCategoryEntryDelete(req, res, projectRoot);
   }
   if (parsedUrl.pathname === CATEGORY_ENTRY_FAVORITE_PATH) {
     return await handleCategoryEntryFavorite(req, res, projectRoot);
@@ -837,6 +841,87 @@ async function handleCategoryEntryUpdate(
     }
 
     sendBodyParsingError(res, error, 'Could not update category entry.');
+  }
+
+  return true;
+}
+
+async function handleCategoryEntryDelete(
+  req: IncomingMessage,
+  res: ServerResponse,
+  projectRoot: string
+) {
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'POST');
+    res.end();
+    return true;
+  }
+
+  const categoryDir = await getCategoryDir(projectRoot);
+  const imageDir = path.resolve(projectRoot, 'public', 'static', 'images');
+
+  try {
+    const payload = (await readRequestBody(req, { maxBytes: MAX_JSON_BODY_BYTES })) as {
+      categoryId?: unknown;
+      entryName?: unknown;
+    };
+
+    const categoryId = typeof payload.categoryId === 'string' ? payload.categoryId.trim() : '';
+    const entryName = typeof payload.entryName === 'string' ? payload.entryName.trim() : '';
+
+    if (!categoryId || !entryName) {
+      sendJson(res, 400, { message: 'categoryId and entryName are required.' });
+      return true;
+    }
+
+    if (!isValidCategoryId(categoryId)) {
+      sendJson(res, 400, { message: 'categoryId must be a valid category slug.' });
+      return true;
+    }
+
+    const categoryPath = resolveCategoryFilePath(categoryDir, categoryId);
+
+    const deletedEntryName = await runSerializedMutation(async () => {
+      if (!(await pathExists(categoryPath))) {
+        throw new Error('category_not_found');
+      }
+
+      const rawContent = await readFile(categoryPath, 'utf8');
+      const parsed = parseCategoryJson(rawContent);
+
+      const templates = isRecord(parsed.templates) ? parsed.templates : {};
+      const matchedKey = Object.keys(templates).find(
+        (templateKey) => templateKey.toLowerCase() === entryName.toLowerCase()
+      );
+
+      if (!matchedKey) {
+        throw new Error('entry_not_found');
+      }
+
+      const currentEntry = readCategoryTemplate(templates[matchedKey]);
+      const { [matchedKey]: removed, ...remainingTemplates } = templates;
+      void removed;
+      parsed.templates = remainingTemplates;
+
+      await atomicWriteFile(categoryPath, `${JSON.stringify(parsed, null, 2)}\n`);
+      await deleteEntryImage(imageDir, currentEntry.image_path);
+
+      return matchedKey;
+    });
+
+    sendJson(res, 200, { categoryId, entryName: deletedEntryName });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'category_not_found') {
+      sendJson(res, 404, { message: 'Category file was not found.' });
+      return true;
+    }
+    if (error instanceof Error && error.message === 'entry_not_found') {
+      sendJson(res, 404, { message: 'Entry was not found in the category.' });
+      return true;
+    }
+
+    sendBodyParsingError(res, error, 'Could not delete category entry.');
   }
 
   return true;

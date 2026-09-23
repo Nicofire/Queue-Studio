@@ -5,6 +5,7 @@ const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
 const CATEGORY_ENTRY_UPDATE_PATH = '/api/categorys/entries/update';
+const CATEGORY_ENTRY_DELETE_PATH = '/api/categorys/entries/delete';
 const CATEGORY_ENTRY_FAVORITE_PATH = '/api/categorys/entries/favorite';
 const CATEGORIES_LIST_PATH = '/api/categories';
 
@@ -155,6 +156,13 @@ export async function updateCategoryEntryInProject(
 ): Promise<UpdateCategoryEntryResponse> {
   const response = await postJson(CATEGORY_ENTRY_UPDATE_PATH, payload, 'Could not update entry');
   return (await response.json()) as UpdateCategoryEntryResponse;
+}
+
+export async function deleteCategoryEntryInProject(
+  categoryId: string,
+  entryName: string
+): Promise<void> {
+  await postJson(CATEGORY_ENTRY_DELETE_PATH, { categoryId, entryName }, 'Could not delete entry');
 }
 
 export async function toggleCategoryEntryFavoriteInProject(

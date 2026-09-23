@@ -5,6 +5,7 @@ type CategoryListTabProps = {
   selectedTemplateIds: string[];
   onToggleTemplate: (categoryId: string, templateId: string) => void;
   onToggleFavorite: (categoryId: string, templateId: string, favorite: boolean) => void;
+  onEditTemplate: (categoryId: string, templateId: string) => void;
   favoriteOnly?: boolean;
   searchQuery?: string;
 };
@@ -26,6 +27,7 @@ export function CategoryListTab({
   selectedTemplateIds,
   onToggleTemplate,
   onToggleFavorite,
+  onEditTemplate,
   favoriteOnly = false,
   searchQuery = '',
 }: CategoryListTabProps) {
@@ -77,6 +79,19 @@ export function CategoryListTab({
               }}
             >
               {template.data.favorite ? '★' : '☆'}
+            </button>
+            <button
+              type="button"
+              className="entry-edit-button"
+              aria-label={`Edit ${template.title}`}
+              title={`Edit ${template.title}`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onEditTemplate(category.id, template.templateId);
+              }}
+            >
+              ✎
             </button>
 
             <span className="template-hover-tooltip" role="tooltip" aria-hidden="true">

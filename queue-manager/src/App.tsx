@@ -75,6 +75,7 @@ function App() {
               selectionByCategory={selectionByCategory}
               setSelectionByCategory={setSelectionByCategory}
               toggleTemplate={toggleTemplate}
+              automaticApiUrl={generationSettings.apiUrl}
             />
           ) : null}
           {activeTab === 'Tile View' ? (
