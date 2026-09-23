@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   CategoryDefinition,
   CategorySelectionMap,
+  CategoryTemplate,
 } from '../features/categories/categoryTypes';
 import { buildQueueCombinations } from '../features/categories/queueBuilder';
 import {
@@ -18,15 +19,23 @@ import {
   type GenerationStatus,
   type GenerationStatusResponse,
 } from '../features/generation/generationApi';
+import { composeGenerationPrompt } from '../features/generation/promptComposition';
 
 type GenerationQueueDockProps = {
   categories: CategoryDefinition[];
   selectionByCategory: CategorySelectionMap;
+  globalPositivePrompt: string;
+  globalNegativePrompt: string;
 };
 
 const STATUS_POLL_INTERVAL_MS = 1500;
 
-export function GenerationQueueDock({ categories, selectionByCategory }: GenerationQueueDockProps) {
+export function GenerationQueueDock({
+  categories,
+  selectionByCategory,
+  globalPositivePrompt,
+  globalNegativePrompt,
+}: GenerationQueueDockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isQueueViewExpanded, setIsQueueViewExpanded] = useState(false);
   const [queueItems, setQueueItems] = useState<GenerationQueueItemPreview[]>([]);
@@ -125,10 +134,7 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
     return combinations
       .filter((combination) => Object.values(combination).some((templateId) => Boolean(templateId)))
       .map((combination, index) => {
-        const positiveParts: string[] = [];
-        const negativeParts: string[] = [];
-        const loraParts: string[] = [];
-        let modelOverride = '';
+        const selectedTemplates: CategoryTemplate[] = [];
 
         const summary = categories
           .map((category) => {
@@ -142,36 +148,23 @@ export function GenerationQueueDock({ categories, selectionByCategory }: Generat
               return `${category.title}: ${templateId}`;
             }
 
-            const positivePrompt = template.data.positive_prompt.trim();
-            const negativePrompt = template.data.negative_prompt.trim();
-            const loras = template.data.loras.trim();
-            const model = template.data.model?.trim() ?? '';
-
-            if (positivePrompt) {
-              positiveParts.push(positivePrompt);
-            }
-            if (negativePrompt) {
-              negativeParts.push(negativePrompt);
-            }
-            if (loras) {
-              loraParts.push(loras);
-            }
-            if (model) {
-              modelOverride = model;
-            }
+            selectedTemplates.push(template.data);
 
             return `${category.title}: ${template.title}`;
           })
           .join(' | ');
 
-        const prompt = [...positiveParts, ...loraParts].join(', ').trim();
+        const composed = composeGenerationPrompt(selectedTemplates, {
+          positive: globalPositivePrompt,
+          negative: globalNegativePrompt,
+        });
 
         return {
           id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}`,
           summary,
-          prompt,
-          negativePrompt: negativeParts.join(', ').trim(),
-          ...(modelOverride ? { model: modelOverride } : {}),
+          prompt: composed.prompt,
+          negativePrompt: composed.negativePrompt,
+          ...(composed.model ? { model: composed.model } : {}),
         } satisfies GenerationQueueItemPayload;
       })
       .filter((item) => item.prompt.length > 0);

@@ -31,6 +31,21 @@ const GENERATION_START_PATH = '/api/generation/start';
 const GENERATION_PAUSE_PATH = '/api/generation/pause';
 const GENERATION_ABORT_PATH = '/api/generation/abort';
 const GENERATION_OPEN_OUTPUT_PATH = '/api/generation/output/open-today';
+const GENERATION_PREVIEW_PATH = '/api/generation/preview';
+
+export type GenerationPreviewRequest = {
+  positive_prompt: string;
+  negative_prompt: string;
+  loras: string;
+  model?: string;
+  seed?: number;
+};
+
+export type GenerationPreviewResponse = {
+  imageBase64: string;
+  prompt: string;
+  negativePrompt: string;
+};
 
 async function readErrorMessage(response: Response, fallback: string) {
   try {
@@ -109,4 +124,26 @@ export async function openCurrentOutputFolder(): Promise<void> {
       await readErrorMessage(response, `Could not open output folder (${response.status}).`)
     );
   }
+}
+
+export async function generatePreviewImage(
+  payload: GenerationPreviewRequest,
+  signal?: AbortSignal
+): Promise<GenerationPreviewResponse> {
+  const response = await fetch(GENERATION_PREVIEW_PATH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    ...(signal ? { signal } : {}),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(response, `Could not generate preview image (${response.status}).`)
+    );
+  }
+
+  return (await response.json()) as GenerationPreviewResponse;
 }

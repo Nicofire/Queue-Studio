@@ -7,6 +7,8 @@ import { tabs, type TabName } from './components/tabs';
 import { loadCategoriesFromProject } from './features/categories/categoryApi';
 import type { CategoryDefinition } from './features/categories/categoryTypes';
 import { useCategorySelection } from './features/categories/useCategorySelection';
+import { resolveSelectedPresetText } from './features/generation/promptComposition';
+import { useProjectSettings } from './features/settings/useProjectSettings';
 import { EditorPage } from './pages/EditorPage';
 import { ListViewPage } from './pages/ListViewPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -17,6 +19,14 @@ function App() {
   const [categories, setCategories] = useState<CategoryDefinition[]>([]);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const { selectionByCategory, setSelectionByCategory, toggleTemplate } = useCategorySelection();
+  const {
+    positivePresetGroup,
+    setPositivePresetGroup,
+    negativePresetGroup,
+    setNegativePresetGroup,
+    generationSettings,
+    setGenerationSettings,
+  } = useProjectSettings();
 
   useEffect(() => {
     let isMounted = true;
@@ -75,11 +85,25 @@ function App() {
             />
           ) : null}
           {activeTab === 'Editor' ? <EditorPage /> : null}
-          {activeTab === 'Settings' ? <SettingsPage /> : null}
+          {activeTab === 'Settings' ? (
+            <SettingsPage
+              positivePresetGroup={positivePresetGroup}
+              negativePresetGroup={negativePresetGroup}
+              setPositivePresetGroup={setPositivePresetGroup}
+              setNegativePresetGroup={setNegativePresetGroup}
+              generationSettings={generationSettings}
+              setGenerationSettings={setGenerationSettings}
+            />
+          ) : null}
         </div>
       </section>
 
-      <GenerationQueueDock categories={categories} selectionByCategory={selectionByCategory} />
+      <GenerationQueueDock
+        categories={categories}
+        selectionByCategory={selectionByCategory}
+        globalPositivePrompt={resolveSelectedPresetText(positivePresetGroup)}
+        globalNegativePrompt={resolveSelectedPresetText(negativePresetGroup)}
+      />
     </main>
   );
 }

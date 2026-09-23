@@ -3,6 +3,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 
+import {
+  composeGenerationPrompt,
+  resolveSelectedPresetText,
+  type PromptPresetSource,
+} from '../src/features/generation/promptComposition';
 import { pathExists, readRequestBody, RequestBodyTooLargeError, sendJson } from './http-utils';
 
 export const GENERATION_STATUS_PATH = '/api/generation/status';
@@ -12,6 +17,7 @@ export const GENERATION_START_PATH = '/api/generation/start';
 export const GENERATION_PAUSE_PATH = '/api/generation/pause';
 export const GENERATION_ABORT_PATH = '/api/generation/abort';
 export const GENERATION_OPEN_OUTPUT_PATH = '/api/generation/output/open-today';
+export const GENERATION_PREVIEW_PATH = '/api/generation/preview';
 
 const MAX_JSON_BODY_BYTES = 1_500_000;
 const JOB_TIMEOUT_MS = 180_000;
@@ -254,8 +260,40 @@ async function loadGenerationSettings(projectRoot: string): Promise<NormalizedSe
   };
 }
 
+/** Reads a preset file, preferring `data/` over the `public/` fallback copy. */
+async function loadPromptPresetGroup(projectRoot: string, fileName: string) {
+  const dataPath = path.resolve(projectRoot, 'data', fileName);
+  const publicPath = path.resolve(projectRoot, 'public', fileName);
+  const presetPath = (await pathExists(dataPath)) ? dataPath : publicPath;
+
+  try {
+    const content = await readFile(presetPath, 'utf8');
+    return JSON.parse(content.replace(/^\uFEFF/, '')) as PromptPresetSource;
+  } catch {
+    return null;
+  }
+}
+
+async function loadGlobalPromptDefaults(projectRoot: string) {
+  const [positiveGroup, negativeGroup] = await Promise.all([
+    loadPromptPresetGroup(projectRoot, 'positive-presets.json'),
+    loadPromptPresetGroup(projectRoot, 'negative-presets.json'),
+  ]);
+
+  return {
+    positive: resolveSelectedPresetText(positiveGroup),
+    negative: resolveSelectedPresetText(negativeGroup),
+  };
+}
+
 async function runTxt2ImgJob(projectRoot: string, item: QueueItem) {
   const settings = await loadGenerationSettings(projectRoot);
+  const images = await requestTxt2Img(settings, item);
+  await saveGeneratedImages(projectRoot, item, images);
+}
+
+/** Issues the txt2img call and returns the raw base64 images. */
+async function requestTxt2Img(settings: NormalizedSettings, item: QueueItem) {
   const modelOverride = item.model?.trim() || settings.model;
   const seed =
     typeof item.seed === 'number' && Number.isFinite(item.seed) ? item.seed : settings.seed;
@@ -321,7 +359,7 @@ async function runTxt2ImgJob(projectRoot: string, item: QueueItem) {
       throw new Error('Automatic1111 response did not contain generated images.');
     }
 
-    await saveGeneratedImages(projectRoot, item, images);
+    return images;
   } finally {
     clearTimeout(timeoutId);
     activeRequestController = null;
@@ -614,6 +652,92 @@ async function handleOpenTodayOutput(
   return true;
 }
 
+/** One-shot generation for the entry editor. Never touches the queue or the output folder. */
+async function handlePreview(req: IncomingMessage, res: ServerResponse, projectRoot: string) {
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'POST');
+    res.end();
+    return true;
+  }
+
+  if (queueStatus === 'running' || queueStatus === 'paused') {
+    sendJson(res, 409, { message: 'Cannot generate a preview while the queue is active.' });
+    return true;
+  }
+
+  if (activeRequestController) {
+    sendJson(res, 409, { message: 'Another generation request is already running.' });
+    return true;
+  }
+
+  try {
+    const payload = (await readRequestBody(req, { maxBytes: MAX_JSON_BODY_BYTES })) as {
+      positive_prompt?: unknown;
+      negative_prompt?: unknown;
+      loras?: unknown;
+      model?: unknown;
+      seed?: unknown;
+    };
+
+    const globals = await loadGlobalPromptDefaults(projectRoot);
+    const composed = composeGenerationPrompt(
+      [
+        {
+          positive_prompt:
+            typeof payload.positive_prompt === 'string' ? payload.positive_prompt : '',
+          negative_prompt:
+            typeof payload.negative_prompt === 'string' ? payload.negative_prompt : '',
+          loras: typeof payload.loras === 'string' ? payload.loras : '',
+          model: typeof payload.model === 'string' ? payload.model : '',
+        },
+      ],
+      globals
+    );
+
+    if (!composed.prompt) {
+      sendJson(res, 400, { message: 'A positive prompt is required to generate a preview.' });
+      return true;
+    }
+
+    const settings = await loadGenerationSettings(projectRoot);
+    const images = await requestTxt2Img(settings, {
+      id: 'preview',
+      summary: 'Entry preview',
+      prompt: composed.prompt,
+      negativePrompt: composed.negativePrompt,
+      ...(composed.model ? { model: composed.model } : {}),
+      ...(typeof payload.seed === 'number' && Number.isFinite(payload.seed)
+        ? { seed: payload.seed }
+        : {}),
+    }).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : 'unknown error';
+      throw new Error(
+        reason === 'fetch failed'
+          ? `Could not reach Automatic1111 at ${settings.apiUrl}. Is it running with --api?`
+          : reason
+      );
+    });
+
+    sendJson(res, 200, {
+      imageBase64: images[0].replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, ''),
+      prompt: composed.prompt,
+      negativePrompt: composed.negativePrompt,
+    });
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      sendBodyParsingError(res, error, 'Could not parse preview payload.');
+      return true;
+    }
+
+    sendJson(res, 502, {
+      message: error instanceof Error ? error.message : 'Could not generate preview image.',
+    });
+  }
+
+  return true;
+}
+
 export async function handleGenerationRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -640,6 +764,9 @@ export async function handleGenerationRequest(
   }
   if (parsedUrl.pathname === GENERATION_OPEN_OUTPUT_PATH) {
     return await handleOpenTodayOutput(req, res, projectRoot);
+  }
+  if (parsedUrl.pathname === GENERATION_PREVIEW_PATH) {
+    return await handlePreview(req, res, projectRoot);
   }
 
   return false;

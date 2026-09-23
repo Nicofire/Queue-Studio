@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 
@@ -14,6 +14,7 @@ export const CATEGORY_CREATE_PATH = '/api/categorys';
 export const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 export const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 export const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
+export const CATEGORY_ENTRY_UPDATE_PATH = '/api/categorys/entries/update';
 export const CATEGORY_ENTRY_FAVORITE_PATH = '/api/categorys/entries/favorite';
 
 const CATEGORY_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -190,6 +191,49 @@ function sendBodyParsingError(res: ServerResponse, error: unknown, fallbackMessa
   sendJson(res, 400, { message: fallbackMessage });
 }
 
+/** Validates base64 image data and writes it into `public/static/images`. */
+async function writeEntryImage(imageDir: string, entryName: string, imageDataBase64: string) {
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(imageDataBase64)) {
+    throw new Error('invalid_image_data');
+  }
+
+  if (estimateBase64DecodedBytes(imageDataBase64) > MAX_IMAGE_BYTES) {
+    throw new Error('image_too_large');
+  }
+
+  const imageBuffer = Buffer.from(imageDataBase64.replace(/\s/g, ''), 'base64');
+  if (imageBuffer.length === 0 || imageBuffer.length > MAX_IMAGE_BYTES) {
+    throw new Error('image_too_large');
+  }
+
+  const extension = detectImageExtension(imageBuffer);
+  if (!extension) {
+    throw new Error('invalid_image_type');
+  }
+
+  const imageBaseName = slugifyCategoryName(entryName) || 'entry';
+  const fileName = `${imageBaseName}_${Date.now()}${extension}`;
+  await writeFile(path.resolve(imageDir, fileName), imageBuffer);
+
+  return `static/images/${fileName}`;
+}
+
+/** Best-effort removal of a managed preview image; ignores anything outside the image dir. */
+async function deleteEntryImage(imageDir: string, imagePath: string) {
+  const normalized = imagePath.trim().replace(/\\/g, '/');
+  if (!normalized.startsWith('static/images/')) {
+    return;
+  }
+
+  const targetPath = path.resolve(imageDir, path.basename(normalized));
+  const relativePath = path.relative(imageDir, targetPath);
+  if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return;
+  }
+
+  await rm(targetPath, { force: true });
+}
+
 export async function handleCategorysRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -210,6 +254,9 @@ export async function handleCategorysRequest(
   }
   if (parsedUrl.pathname === CATEGORY_ENTRY_CREATE_PATH) {
     return await handleCategoryEntryCreate(req, res, projectRoot);
+  }
+  if (parsedUrl.pathname === CATEGORY_ENTRY_UPDATE_PATH) {
+    return await handleCategoryEntryUpdate(req, res, projectRoot);
   }
   if (parsedUrl.pathname === CATEGORY_ENTRY_FAVORITE_PATH) {
     return await handleCategoryEntryFavorite(req, res, projectRoot);
@@ -567,35 +614,12 @@ async function handleCategoryEntryCreate(
         throw new Error('entry_exists');
       }
 
-      let imagePath = '';
       const imageDataBase64 =
         typeof payload.imageDataBase64 === 'string' ? payload.imageDataBase64.trim() : '';
-      if (imageDataBase64.length > 0) {
-        if (!/^[A-Za-z0-9+/=\s]+$/.test(imageDataBase64)) {
-          throw new Error('invalid_image_data');
-        }
-
-        const estimatedImageBytes = estimateBase64DecodedBytes(imageDataBase64);
-        if (estimatedImageBytes > MAX_IMAGE_BYTES) {
-          throw new Error('image_too_large');
-        }
-
-        const imageBuffer = Buffer.from(imageDataBase64.replace(/\s/g, ''), 'base64');
-        if (imageBuffer.length === 0 || imageBuffer.length > MAX_IMAGE_BYTES) {
-          throw new Error('image_too_large');
-        }
-
-        const extension = detectImageExtension(imageBuffer);
-        if (!extension) {
-          throw new Error('invalid_image_type');
-        }
-
-        const imageBaseName = slugifyCategoryName(entryName) || 'entry';
-        const fileName = `${imageBaseName}_${Date.now()}${extension}`;
-        const targetImagePath = path.resolve(imageDir, fileName);
-        await writeFile(targetImagePath, imageBuffer);
-        imagePath = `static/images/${fileName}`;
-      }
+      const imagePath =
+        imageDataBase64.length > 0
+          ? await writeEntryImage(imageDir, entryName, imageDataBase64)
+          : '';
 
       const nextEntry = {
         positive_prompt: typeof payload.positive_prompt === 'string' ? payload.positive_prompt : '',
@@ -648,6 +672,171 @@ async function handleCategoryEntryCreate(
     }
 
     sendBodyParsingError(res, error, 'Could not create category entry.');
+  }
+
+  return true;
+}
+
+async function handleCategoryEntryUpdate(
+  req: IncomingMessage,
+  res: ServerResponse,
+  projectRoot: string
+) {
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'POST');
+    res.end();
+    return true;
+  }
+
+  const categoryDir = await getCategoryDir(projectRoot);
+  const imageDir = path.resolve(projectRoot, 'public', 'static', 'images');
+  await mkdir(imageDir, { recursive: true });
+
+  try {
+    const payload = (await readRequestBody(req, { maxBytes: MAX_JSON_BODY_BYTES })) as {
+      categoryId?: unknown;
+      entryName?: unknown;
+      newEntryName?: unknown;
+      positive_prompt?: unknown;
+      negative_prompt?: unknown;
+      loras?: unknown;
+      model?: unknown;
+      imageDataBase64?: unknown;
+      imageOriginalName?: unknown;
+      removeImage?: unknown;
+    };
+
+    const categoryId = typeof payload?.categoryId === 'string' ? payload.categoryId.trim() : '';
+    const entryName = typeof payload?.entryName === 'string' ? payload.entryName.trim() : '';
+    const newEntryName =
+      typeof payload?.newEntryName === 'string' ? payload.newEntryName.trim() : '';
+
+    if (!categoryId || !entryName) {
+      sendJson(res, 400, { message: 'categoryId and entryName are required.' });
+      return true;
+    }
+
+    if (!isValidCategoryId(categoryId)) {
+      sendJson(res, 400, { message: 'categoryId must be a valid category slug.' });
+      return true;
+    }
+
+    const categoryPath = resolveCategoryFilePath(categoryDir, categoryId);
+
+    const updatedEntry = await runSerializedMutation(async () => {
+      if (!(await pathExists(categoryPath))) {
+        throw new Error('category_not_found');
+      }
+
+      const rawContent = await readFile(categoryPath, 'utf8');
+      const parsed = parseCategoryJson(rawContent);
+
+      const templates = isRecord(parsed.templates) ? parsed.templates : {};
+      const matchedKey = Object.keys(templates).find(
+        (templateKey) => templateKey.toLowerCase() === entryName.toLowerCase()
+      );
+
+      if (!matchedKey) {
+        throw new Error('entry_not_found');
+      }
+
+      const finalEntryName = newEntryName || matchedKey;
+      const isRenaming = finalEntryName.toLowerCase() !== matchedKey.toLowerCase();
+      if (
+        isRenaming &&
+        Object.keys(templates).some(
+          (templateKey) => templateKey.toLowerCase() === finalEntryName.toLowerCase()
+        )
+      ) {
+        throw new Error('entry_exists');
+      }
+
+      const currentEntry = readCategoryTemplate(templates[matchedKey]);
+      const imageDataBase64 =
+        typeof payload.imageDataBase64 === 'string' ? payload.imageDataBase64.trim() : '';
+
+      let imagePath = currentEntry.image_path;
+      if (imageDataBase64.length > 0) {
+        imagePath = await writeEntryImage(imageDir, finalEntryName, imageDataBase64);
+        await deleteEntryImage(imageDir, currentEntry.image_path);
+      } else if (payload.removeImage === true) {
+        imagePath = '';
+        await deleteEntryImage(imageDir, currentEntry.image_path);
+      }
+
+      const nextEntry = {
+        positive_prompt:
+          typeof payload.positive_prompt === 'string'
+            ? payload.positive_prompt
+            : currentEntry.positive_prompt,
+        negative_prompt:
+          typeof payload.negative_prompt === 'string'
+            ? payload.negative_prompt
+            : currentEntry.negative_prompt,
+        loras: typeof payload.loras === 'string' ? payload.loras : currentEntry.loras,
+        image_path: imagePath,
+        favorite: currentEntry.favorite,
+        ...(typeof payload.model === 'string'
+          ? payload.model.trim()
+            ? { model: payload.model.trim() }
+            : {}
+          : currentEntry.model
+            ? { model: currentEntry.model }
+            : {}),
+      };
+
+      // Rebuild in place so a rename keeps the entry at its original position.
+      const nextTemplates: Record<string, unknown> = {};
+      for (const [templateKey, templateValue] of Object.entries(templates)) {
+        if (templateKey === matchedKey) {
+          nextTemplates[finalEntryName] = nextEntry;
+        } else {
+          nextTemplates[templateKey] = templateValue;
+        }
+      }
+      parsed.templates = nextTemplates;
+
+      await atomicWriteFile(categoryPath, `${JSON.stringify(parsed, null, 2)}\n`);
+
+      return {
+        templateId: finalEntryName,
+        title: finalEntryName,
+        previousTemplateId: matchedKey,
+        data: nextEntry,
+      };
+    });
+
+    sendJson(res, 200, updatedEntry);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'category_not_found') {
+      sendJson(res, 404, { message: 'Category file was not found.' });
+      return true;
+    }
+    if (error instanceof Error && error.message === 'entry_not_found') {
+      sendJson(res, 404, { message: 'Entry was not found in the category.' });
+      return true;
+    }
+    if (error instanceof Error && error.message === 'entry_exists') {
+      sendJson(res, 409, { message: 'An entry with this name already exists.' });
+      return true;
+    }
+    if (error instanceof Error && error.message === 'invalid_image_data') {
+      sendJson(res, 400, { message: 'imageDataBase64 is not valid base64 data.' });
+      return true;
+    }
+    if (error instanceof Error && error.message === 'invalid_image_type') {
+      sendJson(res, 400, {
+        message: 'Only PNG, JPG, WEBP, and BMP image signatures are supported.',
+      });
+      return true;
+    }
+    if (error instanceof Error && error.message === 'image_too_large') {
+      sendJson(res, 413, { message: `Image is too large. Max size is ${MAX_IMAGE_BYTES} bytes.` });
+      return true;
+    }
+
+    sendBodyParsingError(res, error, 'Could not update category entry.');
   }
 
   return true;

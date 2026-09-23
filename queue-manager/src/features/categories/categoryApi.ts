@@ -4,6 +4,7 @@ const CATEGORY_CREATE_PATH = '/api/categorys';
 const CATEGORY_RENAME_PATH = '/api/categorys/rename';
 const CATEGORY_REORDER_PATH = '/api/categorys/reorder';
 const CATEGORY_ENTRY_CREATE_PATH = '/api/categorys/entries/create';
+const CATEGORY_ENTRY_UPDATE_PATH = '/api/categorys/entries/update';
 const CATEGORY_ENTRY_FAVORITE_PATH = '/api/categorys/entries/favorite';
 const CATEGORIES_LIST_PATH = '/api/categories';
 
@@ -88,6 +89,23 @@ type CreateCategoryEntryResponse = {
   };
 };
 
+type UpdateCategoryEntryRequest = {
+  categoryId: string;
+  entryName: string;
+  newEntryName?: string;
+  positive_prompt: string;
+  negative_prompt: string;
+  loras: string;
+  model?: string;
+  imageDataBase64?: string;
+  imageOriginalName?: string;
+  removeImage?: boolean;
+};
+
+type UpdateCategoryEntryResponse = CreateCategoryEntryResponse & {
+  previousTemplateId: string;
+};
+
 type ToggleFavoriteResponse = {
   categoryId: string;
   entryName: string;
@@ -130,6 +148,13 @@ export async function createCategoryEntryInProject(
 ): Promise<CreateCategoryEntryResponse> {
   const response = await postJson(CATEGORY_ENTRY_CREATE_PATH, payload, 'Could not create entry');
   return (await response.json()) as CreateCategoryEntryResponse;
+}
+
+export async function updateCategoryEntryInProject(
+  payload: UpdateCategoryEntryRequest
+): Promise<UpdateCategoryEntryResponse> {
+  const response = await postJson(CATEGORY_ENTRY_UPDATE_PATH, payload, 'Could not update entry');
+  return (await response.json()) as UpdateCategoryEntryResponse;
 }
 
 export async function toggleCategoryEntryFavoriteInProject(
