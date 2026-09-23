@@ -41,6 +41,20 @@ export function Automatic1111ConnectionSection({
   const [connectionResult, setConnectionResult] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState(false);
 
+  const normalizeGenerationNumber = (
+    value: number,
+    fallback: number,
+    minimum: number,
+    step = 1
+  ) => {
+    if (!Number.isFinite(value)) {
+      return fallback;
+    }
+
+    const next = Math.max(minimum, Math.round(value / step) * step);
+    return next;
+  };
+
   function buildFallbackPersistedSettings(): PersistedGenerationSettings {
     return toPersistedGenerationSettings(generationSettings);
   }
@@ -258,6 +272,66 @@ export function Automatic1111ConnectionSection({
               </button>
             </div>
             <p className="field-hint">-1 means random seed in Automatic1111.</p>
+          </div>
+
+          <div className="settings-grid two-columns">
+            <label className="field-group">
+              <span className="field-label">Steps</span>
+              <input
+                className="text-input"
+                type="number"
+                min="1"
+                step="1"
+                value={generationSettings.steps}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value);
+                  setGenerationSettings((current) => ({
+                    ...current,
+                    steps: normalizeGenerationNumber(nextValue, current.steps, 1, 1),
+                  }));
+                }}
+              />
+            </label>
+
+            <label className="field-group">
+              <span className="field-label">Width</span>
+              <input
+                className="text-input"
+                type="number"
+                min="64"
+                step="64"
+                value={generationSettings.width}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value);
+                  setGenerationSettings((current) => ({
+                    ...current,
+                    width: normalizeGenerationNumber(nextValue, current.width, 64, 64),
+                  }));
+                }}
+              />
+            </label>
+
+            <label className="field-group">
+              <span className="field-label">Height</span>
+              <input
+                className="text-input"
+                type="number"
+                min="64"
+                step="64"
+                value={generationSettings.height}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value);
+                  setGenerationSettings((current) => ({
+                    ...current,
+                    height: normalizeGenerationNumber(nextValue, current.height, 64, 64),
+                  }));
+                }}
+              />
+            </label>
+          </div>
+
+          <div className="field-group">
+            <p className="field-hint">Width/Height are aligned to multiples of 64.</p>
             <div className="inline-actions">
               <button
                 type="button"
@@ -272,6 +346,9 @@ export function Automatic1111ConnectionSection({
                     apiUrl: nextSettings.apiUrl,
                     model: nextSettings.model,
                     seed: nextSettings.seed,
+                    steps: nextSettings.steps,
+                    width: nextSettings.width,
+                    height: nextSettings.height,
                   };
 
                   saveGenerationSettings(

@@ -40,6 +40,9 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   apiUrl: 'http://127.0.0.1:7860',
   model: '',
   seed: -1,
+  steps: 30,
+  width: 1024,
+  height: 1024,
   theme: 'light',
 };
 
@@ -48,6 +51,9 @@ export const DEFAULT_PERSISTED_GENERATION_SETTINGS: PersistedGenerationSettings 
     apiUrl: DEFAULT_GENERATION_SETTINGS.apiUrl,
     model: DEFAULT_GENERATION_SETTINGS.model,
     seed: DEFAULT_GENERATION_SETTINGS.seed,
+    steps: DEFAULT_GENERATION_SETTINGS.steps,
+    width: DEFAULT_GENERATION_SETTINGS.width,
+    height: DEFAULT_GENERATION_SETTINGS.height,
   },
   generic: {
     theme: DEFAULT_GENERATION_SETTINGS.theme,

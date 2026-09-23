@@ -91,6 +91,9 @@ export function toPersistedGenerationSettings(
       apiUrl: settings.apiUrl,
       model: settings.model,
       seed: settings.seed,
+      steps: settings.steps,
+      width: settings.width,
+      height: settings.height,
     },
     generic: {
       theme: settings.theme,
@@ -108,6 +111,9 @@ export function fromPersistedGenerationSettings(
           apiUrl?: unknown;
           model?: unknown;
           seed?: unknown;
+          steps?: unknown;
+          width?: unknown;
+          height?: unknown;
         };
         generic?: {
           theme?: unknown;
@@ -115,6 +121,9 @@ export function fromPersistedGenerationSettings(
         apiUrl?: unknown;
         model?: unknown;
         seed?: unknown;
+        steps?: unknown;
+        width?: unknown;
+        height?: unknown;
         theme?: unknown;
       }
     | undefined;
@@ -128,6 +137,10 @@ export function fromPersistedGenerationSettings(
         typeof safe?.connection?.apiUrl === 'string' ? safe.connection.apiUrl : fallback.apiUrl,
       model: typeof safe?.connection?.model === 'string' ? safe.connection.model : fallback.model,
       seed: typeof safe?.connection?.seed === 'number' ? safe.connection.seed : fallback.seed,
+      steps: typeof safe?.connection?.steps === 'number' ? safe.connection.steps : fallback.steps,
+      width: typeof safe?.connection?.width === 'number' ? safe.connection.width : fallback.width,
+      height:
+        typeof safe?.connection?.height === 'number' ? safe.connection.height : fallback.height,
       theme: rawTheme === 'dark' || rawTheme === 'light' ? rawTheme : fallback.theme,
     };
   }
@@ -137,6 +150,9 @@ export function fromPersistedGenerationSettings(
     apiUrl: typeof safe?.apiUrl === 'string' ? safe.apiUrl : fallback.apiUrl,
     model: typeof safe?.model === 'string' ? safe.model : fallback.model,
     seed: typeof safe?.seed === 'number' ? safe.seed : fallback.seed,
+    steps: typeof safe?.steps === 'number' ? safe.steps : fallback.steps,
+    width: typeof safe?.width === 'number' ? safe.width : fallback.width,
+    height: typeof safe?.height === 'number' ? safe.height : fallback.height,
     theme: rawTheme === 'dark' || rawTheme === 'light' ? rawTheme : fallback.theme,
   };
 }

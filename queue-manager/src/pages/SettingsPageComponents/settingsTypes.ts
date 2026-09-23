@@ -7,6 +7,9 @@ export type GenerationSettings = {
   apiUrl: string;
   model: string;
   seed: number;
+  steps: number;
+  width: number;
+  height: number;
   theme: 'light' | 'dark';
 };
 
@@ -14,6 +17,9 @@ export type ConnectionSettings = {
   apiUrl: string;
   model: string;
   seed: number;
+  steps: number;
+  width: number;
+  height: number;
 };
 
 export type GenericSettings = {

@@ -46,6 +46,9 @@ type NormalizedSettings = {
   apiUrl: string;
   model: string;
   seed: number;
+  steps: number;
+  width: number;
+  height: number;
 };
 
 type Txt2ImgResponse = {
@@ -186,10 +189,16 @@ async function loadGenerationSettings(projectRoot: string): Promise<NormalizedSe
           apiUrl?: unknown;
           model?: unknown;
           seed?: unknown;
+          steps?: unknown;
+          width?: unknown;
+          height?: unknown;
         };
         apiUrl?: unknown;
         model?: unknown;
         seed?: unknown;
+        steps?: unknown;
+        width?: unknown;
+        height?: unknown;
       }
     | undefined;
 
@@ -211,6 +220,24 @@ async function loadGenerationSettings(projectRoot: string): Promise<NormalizedSe
       : typeof parsed?.seed === 'number'
         ? parsed.seed
         : -1;
+  const stepsRaw =
+    typeof parsed?.connection?.steps === 'number'
+      ? parsed.connection.steps
+      : typeof parsed?.steps === 'number'
+        ? parsed.steps
+        : 30;
+  const widthRaw =
+    typeof parsed?.connection?.width === 'number'
+      ? parsed.connection.width
+      : typeof parsed?.width === 'number'
+        ? parsed.width
+        : 1024;
+  const heightRaw =
+    typeof parsed?.connection?.height === 'number'
+      ? parsed.connection.height
+      : typeof parsed?.height === 'number'
+        ? parsed.height
+        : 1024;
 
   const apiUrl = normalizeApiUrl(apiUrlRaw);
   if (!apiUrl) {
@@ -221,6 +248,9 @@ async function loadGenerationSettings(projectRoot: string): Promise<NormalizedSe
     apiUrl,
     model: modelRaw.trim(),
     seed: Number.isFinite(seedRaw) ? seedRaw : -1,
+    steps: Number.isFinite(stepsRaw) ? Math.max(1, Math.round(stepsRaw)) : 30,
+    width: Number.isFinite(widthRaw) ? Math.max(64, Math.round(widthRaw / 64) * 64) : 1024,
+    height: Number.isFinite(heightRaw) ? Math.max(64, Math.round(heightRaw / 64) * 64) : 1024,
   };
 }
 
@@ -234,6 +264,9 @@ async function runTxt2ImgJob(projectRoot: string, item: QueueItem) {
     prompt: item.prompt,
     negative_prompt: item.negativePrompt,
     seed,
+    steps: settings.steps,
+    width: settings.width,
+    height: settings.height,
     ...(modelOverride
       ? {
           override_settings: {
