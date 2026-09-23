@@ -1,4 +1,4 @@
-export const tabs = ['List View', 'Tile View', 'Editor', 'Settings'] as const;
+export const tabs = ['List View', 'Tile View', 'Settings'] as const;
 
 export type TabName = (typeof tabs)[number];
 

@@ -9,7 +9,6 @@ import type { CategoryDefinition } from './features/categories/categoryTypes';
 import { useCategorySelection } from './features/categories/useCategorySelection';
 import { resolveSelectedPresetText } from './features/generation/promptComposition';
 import { useProjectSettings } from './features/settings/useProjectSettings';
-import { EditorPage } from './pages/EditorPage';
 import { ListViewPage } from './pages/ListViewPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TileViewPage } from './pages/TileViewPage';
@@ -85,7 +84,6 @@ function App() {
               toggleTemplate={toggleTemplate}
             />
           ) : null}
-          {activeTab === 'Editor' ? <EditorPage /> : null}
           {activeTab === 'Settings' ? (
             <SettingsPage
               positivePresetGroup={positivePresetGroup}
