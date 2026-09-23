@@ -53,6 +53,12 @@ function CategoryTile({
         }
       }}
     >
+      {isSelected ? (
+        <span className="category-tile-selected-badge" aria-hidden="true">
+          ✓
+        </span>
+      ) : null}
+
       {imageVisible && imageSrc ? (
         <img
           className="category-tile-image"
