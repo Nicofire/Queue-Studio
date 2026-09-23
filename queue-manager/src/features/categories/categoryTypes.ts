@@ -26,3 +26,14 @@ export type CategoryDefinition = {
 };
 
 export type CategorySelectionMap = Record<string, string[]>;
+
+export type CategoryEntryFormPayload = {
+  entryName: string;
+  positive_prompt: string;
+  negative_prompt: string;
+  loras: string;
+  model?: string;
+  imageDataBase64?: string;
+  imageOriginalName?: string;
+  removeImage?: boolean;
+};

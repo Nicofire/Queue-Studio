@@ -1,26 +1,21 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { AddCategoryModal } from '../components/AddCategoryModal';
-import {
-  CategoryEntryModal,
-  type CategoryEntryFormPayload,
-} from '../components/CategoryEntryModal';
+import { CategoryEntryModal } from '../components/CategoryEntryModal';
 import { CategoryQueueSummary } from '../components/CategoryQueueSummary';
 import { ListCategoryColumn } from '../components/ListCategoryColumn';
 import {
-  createCategoryEntryInProject,
   createCategoryInProject,
-  deleteCategoryEntryInProject,
   renameCategoryInProject,
   reorderCategorysInProject,
-  toggleCategoryEntryFavoriteInProject,
-  updateCategoryEntryInProject,
 } from '../features/categories/categoryApi';
 import { filterCategoryTemplates } from '../features/categories/categoryFilters';
 import type {
   CategoryDefinition,
   CategorySelectionMap,
 } from '../features/categories/categoryTypes';
+import { useCategoryEntryActions } from '../features/categories/useCategoryEntryActions';
+import { toggleSelectAllInCategory } from '../features/categories/useCategorySelection';
 
 const getNextPlaceId = (categories: CategoryDefinition[]) =>
   categories.length === 0 ? 0 : Math.max(...categories.map((category) => category.placeId)) + 1;
@@ -55,13 +50,24 @@ export function ListViewPage({
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
   const [dragError, setDragError] = useState<string | null>(null);
-  const [entryModalCategoryId, setEntryModalCategoryId] = useState<string | null>(null);
-  const [entryModalTemplateId, setEntryModalTemplateId] = useState<string | null>(null);
-  const [entryModalError, setEntryModalError] = useState<string | null>(null);
-  const [isSavingEntry, setIsSavingEntry] = useState(false);
-  const [isDeletingEntry, setIsDeletingEntry] = useState(false);
-  const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const stripRef = useRef<HTMLElement | null>(null);
+
+  const {
+    entryModalCategory,
+    entryModalTemplate,
+    entryModalTemplateId,
+    entryModalError,
+    isSavingEntry,
+    isDeletingEntry,
+    favoriteError,
+    openAddEntryModal,
+    openEditEntryModal,
+    closeEntryModal,
+    saveEntry,
+    deleteEntry,
+    toggleFavorite,
+  } = useCategoryEntryActions({ categories, setCategories, setSelectionByCategory });
+
   const normalizedSearch = entrySearch.trim().toLowerCase();
   const matchingEntryCount = categories.reduce((accumulator, category) => {
     const matches = category.templates.filter((template) =>
@@ -331,247 +337,7 @@ export function ListViewPage({
   };
 
   const handleOpenAddEntryModal = (categoryId: string) => {
-    setEntryModalError(null);
-    setEntryModalTemplateId(null);
-    setEntryModalCategoryId(categoryId);
-  };
-
-  const handleOpenEditEntryModal = (categoryId: string, templateId: string) => {
-    setEntryModalError(null);
-    setEntryModalTemplateId(templateId);
-    setEntryModalCategoryId(categoryId);
-  };
-
-  const handleCloseAddEntryModal = () => {
-    setEntryModalCategoryId(null);
-    setEntryModalTemplateId(null);
-    setEntryModalError(null);
-  };
-
-  const activeEntryCategory =
-    entryModalCategoryId === null
-      ? null
-      : (categories.find((category) => category.id === entryModalCategoryId) ?? null);
-
-  const activeEntryTemplate =
-    entryModalTemplateId === null
-      ? null
-      : (activeEntryCategory?.templates.find(
-          (template) => template.templateId === entryModalTemplateId
-        ) ?? null);
-
-  const handleCreateEntry = async (
-    category: CategoryDefinition,
-    payload: CategoryEntryFormPayload
-  ) => {
-    const duplicated = category.templates.some(
-      (template) => template.templateId.toLowerCase() === payload.entryName.trim().toLowerCase()
-    );
-
-    if (duplicated) {
-      setEntryModalError('An entry with this name already exists in this category.');
-      return;
-    }
-
-    const created = await createCategoryEntryInProject({
-      categoryId: category.id,
-      entryName: payload.entryName,
-      positive_prompt: payload.positive_prompt,
-      negative_prompt: payload.negative_prompt,
-      loras: payload.loras,
-      model: payload.model,
-      imageDataBase64: payload.imageDataBase64,
-      imageOriginalName: payload.imageOriginalName,
-    });
-
-    setCategories((current) =>
-      current.map((item) =>
-        item.id === category.id
-          ? {
-              ...item,
-              templates: [...item.templates, created].sort((a, b) =>
-                a.title.localeCompare(b.title)
-              ),
-            }
-          : item
-      )
-    );
-
-    handleCloseAddEntryModal();
-  };
-
-  const handleUpdateEntry = async (
-    category: CategoryDefinition,
-    templateId: string,
-    payload: CategoryEntryFormPayload
-  ) => {
-    const newEntryName = payload.entryName.trim();
-    const duplicated = category.templates.some(
-      (template) =>
-        template.templateId !== templateId &&
-        template.templateId.toLowerCase() === newEntryName.toLowerCase()
-    );
-
-    if (duplicated) {
-      setEntryModalError('An entry with this name already exists in this category.');
-      return;
-    }
-
-    const updated = await updateCategoryEntryInProject({
-      categoryId: category.id,
-      entryName: templateId,
-      newEntryName,
-      positive_prompt: payload.positive_prompt,
-      negative_prompt: payload.negative_prompt,
-      loras: payload.loras,
-      model: payload.model,
-      imageDataBase64: payload.imageDataBase64,
-      imageOriginalName: payload.imageOriginalName,
-      removeImage: payload.removeImage,
-    });
-
-    setCategories((current) =>
-      current.map((item) =>
-        item.id === category.id
-          ? {
-              ...item,
-              templates: item.templates
-                .map((template) => (template.templateId === templateId ? updated : template))
-                .sort((a, b) => a.title.localeCompare(b.title)),
-            }
-          : item
-      )
-    );
-
-    if (updated.templateId !== templateId) {
-      setSelectionByCategory((current) => {
-        const selected = current[category.id];
-        if (!selected?.includes(templateId)) {
-          return current;
-        }
-
-        return {
-          ...current,
-          [category.id]: selected.map((id) => (id === templateId ? updated.templateId : id)),
-        };
-      });
-    }
-
-    handleCloseAddEntryModal();
-  };
-
-  const handleSaveEntry = async (payload: CategoryEntryFormPayload) => {
-    if (!activeEntryCategory) {
-      setEntryModalError('Selected category was not found.');
-      return;
-    }
-
-    setEntryModalError(null);
-    setIsSavingEntry(true);
-
-    try {
-      if (entryModalTemplateId) {
-        await handleUpdateEntry(activeEntryCategory, entryModalTemplateId, payload);
-      } else {
-        await handleCreateEntry(activeEntryCategory, payload);
-      }
-    } catch (error) {
-      setEntryModalError(
-        error instanceof Error ? error.message : 'Could not save the category entry.'
-      );
-    } finally {
-      setIsSavingEntry(false);
-    }
-  };
-
-  const handleDeleteEntry = async () => {
-    if (!activeEntryCategory || !entryModalTemplateId) {
-      return;
-    }
-
-    const categoryId = activeEntryCategory.id;
-    const templateId = entryModalTemplateId;
-
-    setEntryModalError(null);
-    setIsDeletingEntry(true);
-
-    try {
-      await deleteCategoryEntryInProject(categoryId, templateId);
-
-      setCategories((current) =>
-        current.map((item) =>
-          item.id === categoryId
-            ? {
-                ...item,
-                templates: item.templates.filter((template) => template.templateId !== templateId),
-              }
-            : item
-        )
-      );
-
-      setSelectionByCategory((current) => {
-        const selected = current[categoryId];
-        if (!selected?.includes(templateId)) {
-          return current;
-        }
-
-        return {
-          ...current,
-          [categoryId]: selected.filter((id) => id !== templateId),
-        };
-      });
-
-      handleCloseAddEntryModal();
-    } catch (error) {
-      setEntryModalError(
-        error instanceof Error ? error.message : 'Could not delete the category entry.'
-      );
-    } finally {
-      setIsDeletingEntry(false);
-    }
-  };
-
-  const handleToggleFavorite = async (
-    categoryId: string,
-    templateId: string,
-    favorite: boolean
-  ) => {
-    setFavoriteError(null);
-
-    const previous = categories;
-    setCategories((current) =>
-      current.map((category) => {
-        if (category.id !== categoryId) {
-          return category;
-        }
-
-        return {
-          ...category,
-          templates: category.templates.map((template) =>
-            template.templateId === templateId
-              ? {
-                  ...template,
-                  data: {
-                    ...template.data,
-                    favorite,
-                  },
-                }
-              : template
-          ),
-        };
-      })
-    );
-
-    try {
-      await toggleCategoryEntryFavoriteInProject(categoryId, templateId, favorite);
-    } catch (error) {
-      setCategories(previous);
-      if (error instanceof Error) {
-        setFavoriteError(error.message);
-      } else {
-        setFavoriteError('Could not update favorite state.');
-      }
-    }
+    openAddEntryModal(categoryId);
   };
 
   const handleToggleFavoriteOnly = (categoryId: string) => {
@@ -584,30 +350,9 @@ export function ListViewPage({
   const handleToggleSelectAll = (category: CategoryDefinition) => {
     const visibleTemplateIds = getVisibleTemplates(category).map((template) => template.templateId);
 
-    if (visibleTemplateIds.length === 0) {
-      return;
-    }
-
-    setSelectionByCategory((current) => {
-      const selectedTemplateIds = current[category.id] ?? [];
-      const allVisibleSelected = visibleTemplateIds.every((templateId) =>
-        selectedTemplateIds.includes(templateId)
-      );
-
-      if (allVisibleSelected) {
-        return {
-          ...current,
-          [category.id]: selectedTemplateIds.filter(
-            (templateId) => !visibleTemplateIds.includes(templateId)
-          ),
-        };
-      }
-
-      return {
-        ...current,
-        [category.id]: Array.from(new Set([...selectedTemplateIds, ...visibleTemplateIds])),
-      };
-    });
+    setSelectionByCategory((current) =>
+      toggleSelectAllInCategory(current, category.id, visibleTemplateIds)
+    );
   };
 
   return (
@@ -675,8 +420,8 @@ export function ListViewPage({
             onToggleSelectAll={() => handleToggleSelectAll(category)}
             onToggleFavoriteOnly={() => handleToggleFavoriteOnly(category.id)}
             onToggleTemplate={toggleTemplate}
-            onToggleFavorite={handleToggleFavorite}
-            onEditTemplate={handleOpenEditEntryModal}
+            onToggleFavorite={toggleFavorite}
+            onEditTemplate={openEditEntryModal}
           />
         ))}
       </section>
@@ -703,19 +448,19 @@ export function ListViewPage({
         />
       ) : null}
 
-      {activeEntryCategory ? (
+      {entryModalCategory ? (
         <CategoryEntryModal
-          key={`${activeEntryCategory.id}:${entryModalTemplateId ?? 'new'}`}
+          key={`${entryModalCategory.id}:${entryModalTemplateId ?? 'new'}`}
           mode={entryModalTemplateId ? 'edit' : 'create'}
-          categoryTitle={activeEntryCategory.title}
-          entry={activeEntryTemplate}
+          categoryTitle={entryModalCategory.title}
+          entry={entryModalTemplate}
           automaticApiUrl={automaticApiUrl}
           errorMessage={entryModalError}
           isSaving={isSavingEntry}
           isDeleting={isDeletingEntry}
-          onClose={handleCloseAddEntryModal}
-          onSave={handleSaveEntry}
-          onDelete={handleDeleteEntry}
+          onClose={closeEntryModal}
+          onSave={saveEntry}
+          onDelete={deleteEntry}
         />
       ) : null}
     </>

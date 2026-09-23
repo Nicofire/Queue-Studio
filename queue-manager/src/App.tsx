@@ -80,8 +80,11 @@ function App() {
           {activeTab === 'Tile View' ? (
             <TileViewPage
               categories={categories}
+              setCategories={setCategories}
               selectionByCategory={selectionByCategory}
+              setSelectionByCategory={setSelectionByCategory}
               toggleTemplate={toggleTemplate}
+              automaticApiUrl={generationSettings.apiUrl}
             />
           ) : null}
           {activeTab === 'Settings' ? (

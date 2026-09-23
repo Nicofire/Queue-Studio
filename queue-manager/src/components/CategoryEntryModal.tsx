@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { CategoryTemplateEntry } from '../features/categories/categoryTypes';
+import type {
+  CategoryEntryFormPayload,
+  CategoryTemplateEntry,
+} from '../features/categories/categoryTypes';
 import {
   extractPngTextValue,
   mergePrompts,
@@ -9,17 +12,6 @@ import {
 } from '../features/categories/imageMetadata';
 import { generatePreviewImage } from '../features/generation/generationApi';
 import { fetchModelsViaProxy } from '../pages/SettingsPageComponents/settingsApi';
-
-export type CategoryEntryFormPayload = {
-  entryName: string;
-  positive_prompt: string;
-  negative_prompt: string;
-  loras: string;
-  model?: string;
-  imageDataBase64?: string;
-  imageOriginalName?: string;
-  removeImage?: boolean;
-};
 
 type CategoryEntryModalProps = {
   mode: 'create' | 'edit';

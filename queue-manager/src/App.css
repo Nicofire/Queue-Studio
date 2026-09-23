@@ -579,6 +579,34 @@
   gap: 14px;
 }
 
+.tile-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tile-toolbar .field-group {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.tile-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-tile-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
 .category-tile {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.62);

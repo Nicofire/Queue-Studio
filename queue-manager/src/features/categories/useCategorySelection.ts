@@ -25,3 +25,33 @@ export function useCategorySelection() {
     toggleTemplate,
   };
 }
+
+/** Selects every visible template, or clears them when all are already selected. */
+export const toggleSelectAllInCategory = (
+  current: CategorySelectionMap,
+  categoryId: string,
+  visibleTemplateIds: string[]
+): CategorySelectionMap => {
+  if (visibleTemplateIds.length === 0) {
+    return current;
+  }
+
+  const selectedTemplateIds = current[categoryId] ?? [];
+  const allVisibleSelected = visibleTemplateIds.every((templateId) =>
+    selectedTemplateIds.includes(templateId)
+  );
+
+  if (allVisibleSelected) {
+    return {
+      ...current,
+      [categoryId]: selectedTemplateIds.filter(
+        (templateId) => !visibleTemplateIds.includes(templateId)
+      ),
+    };
+  }
+
+  return {
+    ...current,
+    [categoryId]: Array.from(new Set([...selectedTemplateIds, ...visibleTemplateIds])),
+  };
+};
