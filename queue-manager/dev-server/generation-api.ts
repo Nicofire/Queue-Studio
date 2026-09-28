@@ -292,8 +292,11 @@ async function runTxt2ImgJob(projectRoot: string, item: QueueItem) {
   await saveGeneratedImages(projectRoot, item, images);
 }
 
-/** Issues the txt2img call and returns the raw base64 images. */
-async function requestTxt2Img(settings: NormalizedSettings, item: QueueItem) {
+/** Preview grid sizes the entry editor is allowed to request in a single batched call. */
+const ALLOWED_PREVIEW_BATCH_SIZES = [1, 4, 9];
+
+/** Issues the txt2img call and returns the raw base64 images. `batchSize` requests them in one batched call. */
+async function requestTxt2Img(settings: NormalizedSettings, item: QueueItem, batchSize = 1) {
   const modelOverride = item.model?.trim() || settings.model;
   const seed =
     typeof item.seed === 'number' && Number.isFinite(item.seed) ? item.seed : settings.seed;
@@ -305,6 +308,7 @@ async function requestTxt2Img(settings: NormalizedSettings, item: QueueItem) {
     steps: settings.steps,
     width: settings.width,
     height: settings.height,
+    batch_size: batchSize,
     ...(modelOverride
       ? {
           override_settings: {
@@ -678,6 +682,7 @@ async function handlePreview(req: IncomingMessage, res: ServerResponse, projectR
       loras?: unknown;
       model?: unknown;
       seed?: unknown;
+      batchSize?: unknown;
     };
 
     const globals = await loadGlobalPromptDefaults(projectRoot);
@@ -700,17 +705,27 @@ async function handlePreview(req: IncomingMessage, res: ServerResponse, projectR
       return true;
     }
 
+    const batchSize =
+      typeof payload.batchSize === 'number' &&
+      ALLOWED_PREVIEW_BATCH_SIZES.includes(payload.batchSize)
+        ? payload.batchSize
+        : 1;
+
     const settings = await loadGenerationSettings(projectRoot);
-    const images = await requestTxt2Img(settings, {
-      id: 'preview',
-      summary: 'Entry preview',
-      prompt: composed.prompt,
-      negativePrompt: composed.negativePrompt,
-      ...(composed.model ? { model: composed.model } : {}),
-      ...(typeof payload.seed === 'number' && Number.isFinite(payload.seed)
-        ? { seed: payload.seed }
-        : {}),
-    }).catch((error: unknown) => {
+    const images = await requestTxt2Img(
+      settings,
+      {
+        id: 'preview',
+        summary: 'Entry preview',
+        prompt: composed.prompt,
+        negativePrompt: composed.negativePrompt,
+        ...(composed.model ? { model: composed.model } : {}),
+        ...(typeof payload.seed === 'number' && Number.isFinite(payload.seed)
+          ? { seed: payload.seed }
+          : {}),
+      },
+      batchSize
+    ).catch((error: unknown) => {
       const reason = error instanceof Error ? error.message : 'unknown error';
       throw new Error(
         reason === 'fetch failed'
@@ -719,8 +734,14 @@ async function handlePreview(req: IncomingMessage, res: ServerResponse, projectR
       );
     });
 
+    // A1111 prepends an extra grid image when batching; keep only the individual generations.
+    const individualImages =
+      images.length > batchSize ? images.slice(images.length - batchSize) : images;
+
     sendJson(res, 200, {
-      imageBase64: images[0].replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, ''),
+      images: individualImages.map((image) =>
+        image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '')
+      ),
       prompt: composed.prompt,
       negativePrompt: composed.negativePrompt,
     });

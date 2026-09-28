@@ -39,10 +39,11 @@ export type GenerationPreviewRequest = {
   loras: string;
   model?: string;
   seed?: number;
+  batchSize?: number;
 };
 
 export type GenerationPreviewResponse = {
-  imageBase64: string;
+  images: string[];
   prompt: string;
   negativePrompt: string;
 };

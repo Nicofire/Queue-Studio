@@ -57,7 +57,9 @@ export function CategoryEntryModal({
   const [model, setModel] = useState(entry?.data.model ?? '');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedImagePreview, setSelectedImagePreview] = useState('');
-  const [generatedImageBase64, setGeneratedImageBase64] = useState('');
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [selectedGeneratedIndex, setSelectedGeneratedIndex] = useState<number | null>(null);
+  const [batchSize, setBatchSize] = useState<4 | 9>(4);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -114,15 +116,19 @@ export function CategoryEntryModal({
     return () => controller.abort();
   }, [automaticApiUrl]);
 
-  const previewSrc = generatedImageBase64
-    ? `data:image/png;base64,${generatedImageBase64}`
+  const hasGeneratedGrid = generatedImages.length > 0;
+  const selectedGeneratedImage =
+    selectedGeneratedIndex !== null ? generatedImages[selectedGeneratedIndex] : undefined;
+  const previewSrc = selectedGeneratedImage
+    ? `data:image/png;base64,${selectedGeneratedImage}`
     : selectedImagePreview || (removeExistingImage ? '' : existingImageSrc);
 
-  const hasImage = Boolean(previewSrc);
+  const hasImage = hasGeneratedGrid || Boolean(previewSrc);
 
   const handleImageSelection = async (file: File) => {
     setDropError(null);
-    setGeneratedImageBase64('');
+    setGeneratedImages([]);
+    setSelectedGeneratedIndex(null);
     setRemoveExistingImage(false);
     setImageFile(file);
 
@@ -178,9 +184,11 @@ export function CategoryEntryModal({
         negative_prompt: negativePrompt.trim(),
         loras: loras.trim(),
         model: model.trim() || undefined,
+        batchSize,
       });
 
-      setGeneratedImageBase64(result.imageBase64);
+      setGeneratedImages(result.images);
+      setSelectedGeneratedIndex(result.images.length > 0 ? 0 : null);
       setImageFile(null);
       setRemoveExistingImage(false);
       if (fileInputRef.current) {
@@ -196,7 +204,8 @@ export function CategoryEntryModal({
   };
 
   const handleRemoveImage = () => {
-    setGeneratedImageBase64('');
+    setGeneratedImages([]);
+    setSelectedGeneratedIndex(null);
     setImageFile(null);
     setRemoveExistingImage(true);
     setDropError(null);
@@ -214,8 +223,8 @@ export function CategoryEntryModal({
     let imageDataBase64: string | undefined;
     let imageOriginalName: string | undefined;
 
-    if (generatedImageBase64) {
-      imageDataBase64 = generatedImageBase64;
+    if (selectedGeneratedImage) {
+      imageDataBase64 = selectedGeneratedImage;
       imageOriginalName = `${trimmedEntryName}.png`;
     } else if (selectedImage) {
       const dataUrl = await readFileAsDataUrl(selectedImage);
@@ -353,7 +362,41 @@ export function CategoryEntryModal({
               merged.
             </p>
 
-            {hasImage ? (
+            {hasGeneratedGrid ? (
+              <div
+                className={`entry-generated-grid entry-generated-grid-${batchSize}`}
+                role="listbox"
+                aria-label="Generated preview images"
+              >
+                {generatedImages.map((image, index) => {
+                  const isSelected = index === selectedGeneratedIndex;
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={
+                        isSelected ? 'entry-generated-tile is-selected' : 'entry-generated-tile'
+                      }
+                      onClick={() => setSelectedGeneratedIndex(index)}
+                      disabled={isBusy}
+                    >
+                      {isSelected ? (
+                        <span className="category-tile-selected-badge" aria-hidden="true">
+                          ✓
+                        </span>
+                      ) : null}
+                      <img
+                        className="entry-generated-image"
+                        src={`data:image/png;base64,${image}`}
+                        alt={`Generated option ${index + 1}`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : hasImage ? (
               <img className="entry-image-preview" src={previewSrc} alt="Entry preview" />
             ) : null}
 
@@ -371,14 +414,34 @@ export function CategoryEntryModal({
             />
 
             <div className="entry-image-actions">
+              <div className="entry-batch-size-toggle" role="group" aria-label="Batch size">
+                <button
+                  type="button"
+                  className={batchSize === 4 ? 'secondary-button is-active' : 'secondary-button'}
+                  onClick={() => setBatchSize(4)}
+                  disabled={isBusy}
+                  aria-pressed={batchSize === 4}
+                >
+                  2x2
+                </button>
+                <button
+                  type="button"
+                  className={batchSize === 9 ? 'secondary-button is-active' : 'secondary-button'}
+                  onClick={() => setBatchSize(9)}
+                  disabled={isBusy}
+                  aria-pressed={batchSize === 9}
+                >
+                  3x3
+                </button>
+              </div>
               <button
                 type="button"
                 className="secondary-button"
                 onClick={() => void handleGenerate()}
                 disabled={isBusy}
-                title="Generate a preview image from the fields above"
+                title="Generate a batch of preview images from the fields above"
               >
-                {isGenerating ? 'Generating...' : 'Generate'}
+                {isGenerating ? 'Generating...' : `Generate ${batchSize}`}
               </button>
               {hasImage ? (
                 <button
@@ -393,8 +456,8 @@ export function CategoryEntryModal({
             </div>
 
             <p className="field-hint">
-              {generatedImageBase64
-                ? 'Generated preview will be saved with this entry.'
+              {hasGeneratedGrid
+                ? 'Select one generated image to save with this entry. Generate again for a new batch.'
                 : selectedImage
                   ? `Selected image: ${selectedImage.name}`
                   : removeExistingImage
