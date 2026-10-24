@@ -198,6 +198,14 @@
   background: rgba(96, 165, 250, 0.08);
 }
 
+:root[data-theme='dark'] .category-column,
+:root[data-theme='dark'] .category-add-entry-button:not(:hover),
+:root[data-theme='dark'] .entry-drop-zone,
+:root[data-theme='dark'] .category-tile:not(.is-selected),
+:root[data-theme='dark'] .category-tab-button:not(.is-active) {
+  background: var(--surface);
+}
+
 .text-input:focus,
 .text-area:focus {
   border-color: var(--accent);
