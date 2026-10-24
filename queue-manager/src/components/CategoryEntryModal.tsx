@@ -1,4 +1,7 @@
+import { Check, ImagePlus, LoaderCircle, Save, Sparkles, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { IconButton } from './IconButton';
+import { Modal } from './Modal';
 
 import type {
   CategoryEntryFormPayload,
@@ -67,6 +70,7 @@ export function CategoryEntryModal({
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [modelListFailed, setModelListFailed] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const objectUrlRef = useRef('');
 
@@ -245,34 +249,44 @@ export function CategoryEntryModal({
   };
 
   const isBusy = isSaving || isDeleting || isGenerating;
+  const isDirty =
+    entryName !== (entry?.title ?? '') ||
+    positivePrompt !== (entry?.data.positive_prompt ?? '') ||
+    negativePrompt !== (entry?.data.negative_prompt ?? '') ||
+    loras !== (entry?.data.loras ?? '') ||
+    model !== (entry?.data.model ?? '') ||
+    Boolean(selectedImage) ||
+    generatedImages.length > 0 ||
+    removeExistingImage;
+  const requestClose = () => {
+    if (isBusy) return;
+    if (isDirty) setIsConfirmingDiscard(true);
+    else onClose();
+  };
   // Keep a stored model selectable even when Automatic1111 no longer reports it.
   const modelSelectOptions =
     model && !modelOptions.includes(model) ? [model, ...modelOptions] : modelOptions;
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <section
-        className="modal-card entry-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="entry-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="modal-header">
-          <h3 id="entry-modal-title">
-            {mode === 'edit' ? `Edit ${entry?.title ?? 'entry'}` : `Add Entry to ${categoryTitle}`}
-          </h3>
-          <button
-            type="button"
-            className="modal-close-button"
-            aria-label="Close entry window"
-            onClick={onClose}
-          >
-            X
-          </button>
-        </header>
+    <Modal className="entry-modal" titleId="entry-modal-title" onRequestClose={requestClose}>
+      <header className="modal-header">
+        <h3 id="entry-modal-title">
+          {mode === 'edit' ? `Edit ${entry?.title ?? 'entry'}` : `Add Entry to ${categoryTitle}`}
+        </h3>
+        <IconButton
+          type="button"
+          className="modal-close-button"
+          label="Close entry window"
+          onClick={requestClose}
+          disabled={isBusy}
+          title="Close entry window"
+        >
+          <X size={17} />
+        </IconButton>
+      </header>
 
-        <div className="modal-body">
+      <div className="modal-body entry-editor-layout">
+        <fieldset className="entry-fields" disabled={isBusy}>
           <label className="field-group" htmlFor="entry-name-input">
             <span className="field-label">Entry Name</span>
             <input
@@ -351,21 +365,23 @@ export function CategoryEntryModal({
             </span>
           </label>
 
+          {errorMessage ? (
+            <p className="field-hint is-error" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
+        </fieldset>
+        <div className="entry-media">
           <div
             className="entry-drop-zone"
             onDrop={(event) => void handleDrop(event)}
             onDragOver={(event) => event.preventDefault()}
           >
             <p className="field-label">Preview image</p>
-            <p className="field-hint">
-              Drop an image or pick a file. PNG metadata with key parameters is read and prompts are
-              merged.
-            </p>
-
             {hasGeneratedGrid ? (
               <div
-                className={`entry-generated-grid entry-generated-grid-${batchSize}`}
-                role="listbox"
+                className={`entry-generated-grid entry-generated-grid-${generatedImages.length > 4 ? 9 : 4}`}
+                role="group"
                 aria-label="Generated preview images"
               >
                 {generatedImages.map((image, index) => {
@@ -374,8 +390,8 @@ export function CategoryEntryModal({
                     <button
                       key={index}
                       type="button"
-                      role="option"
-                      aria-selected={isSelected}
+                      aria-pressed={isSelected}
+                      aria-label={`Select preview ${index + 1}`}
                       className={
                         isSelected ? 'entry-generated-tile is-selected' : 'entry-generated-tile'
                       }
@@ -384,7 +400,7 @@ export function CategoryEntryModal({
                     >
                       {isSelected ? (
                         <span className="category-tile-selected-badge" aria-hidden="true">
-                          ✓
+                          <Check size={15} />
                         </span>
                       ) : null}
                       <img
@@ -398,20 +414,29 @@ export function CategoryEntryModal({
               </div>
             ) : hasImage ? (
               <img className="entry-image-preview" src={previewSrc} alt="Entry preview" />
-            ) : null}
+            ) : (
+              <div className="entry-image-empty">
+                <ImagePlus size={32} strokeWidth={1.25} />
+                <span>No preview image</span>
+              </div>
+            )}
 
-            <input
-              ref={fileInputRef}
-              className="entry-file-input"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/bmp"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  void handleImageSelection(file);
-                }
-              }}
-            />
+            <label className="field-group">
+              <span className="field-label">Upload image</span>
+              <input
+                ref={fileInputRef}
+                className="entry-file-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/bmp"
+                disabled={isBusy}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void handleImageSelection(file);
+                  }
+                }}
+              />
+            </label>
 
             <div className="entry-image-actions">
               <div className="entry-batch-size-toggle" role="group" aria-label="Batch size">
@@ -441,6 +466,11 @@ export function CategoryEntryModal({
                 disabled={isBusy}
                 title="Generate a batch of preview images from the fields above"
               >
+                {isGenerating ? (
+                  <LoaderCircle size={16} className="spin" />
+                ) : (
+                  <Sparkles size={16} />
+                )}
                 {isGenerating ? 'Generating...' : `Generate ${batchSize}`}
               </button>
               {hasImage ? (
@@ -450,14 +480,14 @@ export function CategoryEntryModal({
                   onClick={handleRemoveImage}
                   disabled={isBusy}
                 >
-                  Remove image
+                  <Trash2 size={15} /> Remove
                 </button>
               ) : null}
             </div>
 
             <p className="field-hint">
               {hasGeneratedGrid
-                ? 'Select one generated image to save with this entry. Generate again for a new batch.'
+                ? `Preview ${(selectedGeneratedIndex ?? 0) + 1} selected`
                 : selectedImage
                   ? `Selected image: ${selectedImage.name}`
                   : removeExistingImage
@@ -470,56 +500,79 @@ export function CategoryEntryModal({
 
           {generateError ? <p className="field-hint is-error">{generateError}</p> : null}
           {dropError ? <p className="field-hint is-error">{dropError}</p> : null}
-          {errorMessage ? <p className="field-hint is-error">{errorMessage}</p> : null}
         </div>
+      </div>
 
-        <footer className="modal-footer">
-          {mode === 'edit' ? (
-            isConfirmingDelete ? (
-              <div className="entry-delete-confirm">
-                <span className="field-hint is-error">Delete this entry permanently?</span>
+      <footer className="modal-footer">
+        {isConfirmingDiscard ? (
+          <div className="entry-discard-confirm" role="alert">
+            <strong>Discard unsaved changes?</strong>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setIsConfirmingDiscard(false)}
+            >
+              Keep editing
+            </button>
+            <button type="button" className="danger-button" onClick={onClose}>
+              Discard changes
+            </button>
+          </div>
+        ) : (
+          <>
+            {mode === 'edit' ? (
+              isConfirmingDelete ? (
+                <div className="entry-delete-confirm">
+                  <span className="field-hint is-error">Delete this entry permanently?</span>
+                  <button
+                    type="button"
+                    className="danger-button"
+                    onClick={() => void onDelete()}
+                    disabled={isBusy}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Confirm delete'}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setIsConfirmingDelete(false)}
+                    disabled={isBusy}
+                  >
+                    Keep
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  className="danger-button"
-                  onClick={() => void onDelete()}
+                  className="danger-button entry-delete-button"
+                  onClick={() => setIsConfirmingDelete(true)}
                   disabled={isBusy}
                 >
-                  {isDeleting ? 'Deleting...' : 'Confirm delete'}
+                  <Trash2 size={15} /> Delete entry
                 </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setIsConfirmingDelete(false)}
-                  disabled={isBusy}
-                >
-                  Keep
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="danger-button entry-delete-button"
-                onClick={() => setIsConfirmingDelete(true)}
-                disabled={isBusy}
-              >
-                Delete entry
-              </button>
-            )
-          ) : null}
+              )
+            ) : null}
 
-          <button type="button" className="secondary-button" onClick={onClose} disabled={isBusy}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => void handleSave()}
-            disabled={isBusy || !entryName.trim()}
-          >
-            {isSaving ? 'Saving...' : 'Save'}
-          </button>
-        </footer>
-      </section>
-    </div>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={requestClose}
+              disabled={isBusy}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => void handleSave()}
+              disabled={isBusy || !entryName.trim()}
+            >
+              <Save size={16} />
+              {isSaving ? 'Saving...' : 'Save entry'}
+            </button>
+          </>
+        )}
+      </footer>
+    </Modal>
   );
 }

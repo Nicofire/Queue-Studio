@@ -1,57 +1,61 @@
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+
 :root {
-  --text: #364152;
-  --text-h: #0f172a;
-  --bg: #eef2f7;
-  --surface: rgba(255, 255, 255, 0.78);
-  --border: rgba(148, 163, 184, 0.28);
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-soft: rgba(37, 99, 235, 0.08);
-  --success: #15803d;
-  --danger: #b91c1c;
-  --shadow: 0 18px 45px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #eef0f1;
+  --text: #464c53;
+  --text-h: #202327;
+  --text-muted: #626b75;
+  --border: #d5dadd;
+  --control-border: #87919a;
+  --accent: #0f766e;
+  --accent-strong: #115e59;
+  --accent-soft: #e0f2ef;
+  --on-accent: #ffffff;
+  --success: #157347;
+  --warning: #925b08;
+  --danger: #b42332;
+  --shadow: 0 16px 48px #15191e26;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --heading: var(--sans);
 
-  --sans: 'Segoe UI', Inter, system-ui, sans-serif;
-  --heading: 'Segoe UI', Inter, system-ui, sans-serif;
-
-  font: 18px/1.5 var(--sans);
-  letter-spacing: 0.18px;
+  font: 14px/1.5 var(--sans);
+  letter-spacing: 0;
   color-scheme: light;
   color: var(--text);
-  background:
-    radial-gradient(circle at top, rgba(37, 99, 235, 0.14), transparent 34%),
-    linear-gradient(180deg, #f8fbff 0%, #eef2f7 100%);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 :root[data-theme='dark'] {
-  --text: #cbd5e1;
-  --text-h: #f8fafc;
-  --bg: #111827;
-  --surface: rgba(17, 24, 39, 0.88);
-  --border: rgba(148, 163, 184, 0.18);
-  --accent: #60a5fa;
-  --accent-strong: #3b82f6;
-  --accent-soft: rgba(96, 165, 250, 0.16);
-  --success: #4ade80;
-  --danger: #f87171;
-  --shadow: 0 18px 45px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.18);
-
+  --bg: #141618;
+  --surface: #1d2023;
+  --surface-raised: #25292d;
+  --surface-muted: #181b1e;
+  --text: #c4c9ce;
+  --text-h: #e8eaed;
+  --text-muted: #a0a8b1;
+  --border: #3d444b;
+  --control-border: #66717c;
+  --accent: #5eead4;
+  --accent-strong: #99f6e4;
+  --accent-soft: #203c38;
+  --on-accent: #12312c;
+  --success: #7ddca4;
+  --warning: #f5bf62;
+  --danger: #ff9ba5;
+  --shadow: 0 16px 48px #00000066;
   color-scheme: dark;
-  background:
-    radial-gradient(circle at top, rgba(96, 165, 250, 0.12), transparent 34%),
-    linear-gradient(180deg, #0f172a 0%, #111827 100%);
 }
 
-#root {
-  min-height: 100svh;
+* {
   box-sizing: border-box;
 }
 
@@ -62,42 +66,79 @@ body {
   background: var(--bg);
 }
 
+#root {
+  min-height: 100svh;
+}
+
 h1,
-h2 {
+h2,
+h3,
+h4 {
+  margin: 0;
   font-family: var(--heading);
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 1.3;
   color: var(--text-h);
 }
 
 h1 {
-  font-size: clamp(2.25rem, 4vw, 4rem);
-  letter-spacing: -0.04em;
-  line-height: 1.05;
-  margin: 0 0 16px;
-  @media (max-width: 1024px) {
-    margin-bottom: 12px;
-  }
+  font-size: 20px;
 }
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  font-size: 18px;
+}
+h3 {
+  font-size: 15px;
 }
 p {
   margin: 0;
 }
-
 button,
 input,
 select,
 textarea {
   font: inherit;
+  letter-spacing: 0;
 }
-
 button {
   color: inherit;
+}
+button:not(:disabled),
+summary {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+svg {
+  flex-shrink: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-h);
+}
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

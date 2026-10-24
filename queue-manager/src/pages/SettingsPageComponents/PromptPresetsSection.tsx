@@ -36,11 +36,6 @@ export function PromptPresetsSection({
         <p className="panel-label">Settings</p>
         <h2>Prompt presets</h2>
       </div>
-      <p className="subtitle">
-        Die JSON-Dateien werden aus dem Projektordner geladen und beim Speichern direkt dort
-        aktualisiert.
-      </p>
-
       <div className="settings-grid two-columns">
         <PromptPresetEditor
           title="Positive prompt preset"
@@ -66,13 +61,13 @@ export function PromptPresetsSection({
             void (async () => {
               try {
                 await saveJsonToProject(REMOTE_JSON_PATHS.positivePresets, positivePresetGroup);
-                setSaveResult('Positive presets wurden im Projektordner gespeichert.');
+                setSaveResult('Positive presets saved.');
                 setSaveError(false);
               } catch (error) {
                 setSaveResult(
                   error instanceof Error
-                    ? `Positive presets konnten nicht gespeichert werden: ${error.message}`
-                    : 'Positive presets konnten nicht gespeichert werden.'
+                    ? `Could not save positive presets: ${error.message}`
+                    : 'Could not save positive presets.'
                 );
                 setSaveError(true);
                 downloadJsonFile('positive-presets.json', positivePresetGroup);
@@ -105,13 +100,13 @@ export function PromptPresetsSection({
             void (async () => {
               try {
                 await saveJsonToProject(REMOTE_JSON_PATHS.negativePresets, negativePresetGroup);
-                setSaveResult('Negative presets wurden im Projektordner gespeichert.');
+                setSaveResult('Negative presets saved.');
                 setSaveError(false);
               } catch (error) {
                 setSaveResult(
                   error instanceof Error
-                    ? `Negative presets konnten nicht gespeichert werden: ${error.message}`
-                    : 'Negative presets konnten nicht gespeichert werden.'
+                    ? `Could not save negative presets: ${error.message}`
+                    : 'Could not save negative presets.'
                 );
                 setSaveError(true);
                 downloadJsonFile('negative-presets.json', negativePresetGroup);

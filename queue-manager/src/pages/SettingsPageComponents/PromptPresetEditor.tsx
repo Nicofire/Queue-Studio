@@ -1,3 +1,5 @@
+import { Save } from 'lucide-react';
+
 type PromptPresetEditorProps = {
   title: string;
   presetNames: string[];
@@ -47,9 +49,8 @@ export function PromptPresetEditor({
 
       <div className="card-actions">
         <button type="button" className="primary-button" onClick={onSave}>
-          Save preset
+          <Save size={16} /> Save preset
         </button>
-        <p className="field-hint">Speichert Presets im Projektordner.</p>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
+import { CheckCheck, Pencil, Plus, Star } from 'lucide-react';
 import { filterCategoryTemplates } from '../features/categories/categoryFilters';
 import type { CategoryDefinition } from '../features/categories/categoryTypes';
 import { CategoryListTab } from './CategoryListTab';
+import { IconButton } from './IconButton';
 
 type ListCategoryColumnProps = {
   category: CategoryDefinition;
@@ -121,19 +123,29 @@ export function ListCategoryColumn({
               onDragStart={(event) => onHeaderDragStart(event, category.id)}
               onDragEnd={onHeaderDragEnd}
             >
-              {category.title}
+              {category.title}{' '}
+              <small className="category-entry-count">{category.templates.length}</small>
             </h3>
           )}
           {!isEditing ? (
-            <button
-              type="button"
-              className="category-add-entry-button"
-              onClick={onOpenAddEntryModal}
-              title={`Add entry to ${category.title}`}
-              aria-label={`Add entry to ${category.title}`}
-            >
-              +
-            </button>
+            <div className="category-header-actions">
+              <IconButton
+                className="entry-edit-button"
+                label={`Rename ${category.title}`}
+                onClick={onStartRename}
+              >
+                <Pencil size={14} />
+              </IconButton>
+              <IconButton
+                type="button"
+                className="category-add-entry-button"
+                onClick={onOpenAddEntryModal}
+                title={`Add entry to ${category.title}`}
+                label={`Add entry to ${category.title}`}
+              >
+                <Plus size={16} />
+              </IconButton>
+            </div>
           ) : null}
         </div>
         <div className="category-column-filters">
@@ -141,15 +153,17 @@ export function ListCategoryColumn({
             type="button"
             className={allVisibleSelected ? 'toggle-button is-active' : 'toggle-button'}
             onClick={onToggleSelectAll}
+            aria-pressed={allVisibleSelected}
           >
-            Select All
+            <CheckCheck size={14} /> Select all
           </button>
           <button
             type="button"
             className={favoriteOnly ? 'toggle-button is-active' : 'toggle-button'}
             onClick={onToggleFavoriteOnly}
+            aria-pressed={favoriteOnly}
           >
-            Favorit only
+            <Star size={14} /> Favorites
           </button>
         </div>
       </header>

@@ -1,3 +1,4 @@
+import { CheckCheck, Plus, Star } from 'lucide-react';
 import { useState, type Dispatch, type SetStateAction } from 'react';
 
 import { CategoryEntryModal } from '../components/CategoryEntryModal';
@@ -89,7 +90,7 @@ export function TileViewPage({
             <>
               <div className="tile-toolbar">
                 <label className="field-group" htmlFor="tile-entry-search">
-                  <span className="field-label">Search Entries</span>
+                  <span className="field-label">Search {activeCategory.title}</span>
                   <input
                     id="tile-entry-search"
                     className="text-input"
@@ -105,22 +106,24 @@ export function TileViewPage({
                     type="button"
                     className={allVisibleSelected ? 'toggle-button is-active' : 'toggle-button'}
                     onClick={() => handleToggleSelectAll(activeCategory)}
+                    aria-pressed={allVisibleSelected}
                   >
-                    Select All
+                    <CheckCheck size={15} /> Select all
                   </button>
                   <button
                     type="button"
                     className={favoriteOnly ? 'toggle-button is-active' : 'toggle-button'}
                     onClick={() => setFavoriteOnly((current) => !current)}
+                    aria-pressed={favoriteOnly}
                   >
-                    Favorit only
+                    <Star size={15} /> Favorites
                   </button>
                   <button
                     type="button"
                     className="secondary-button"
                     onClick={() => openAddEntryModal(activeCategory.id)}
                   >
-                    + Add Entry
+                    <Plus size={16} /> Add entry
                   </button>
                   <p className="field-hint">
                     {visibleTemplates.length} of {activeCategory.templates.length} entries

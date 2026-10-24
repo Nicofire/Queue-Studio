@@ -1,4 +1,6 @@
+import { ImageOff, Pencil, Star } from 'lucide-react';
 import type { CategoryDefinition } from '../features/categories/categoryTypes';
+import { IconButton } from './IconButton';
 
 type CategoryListTabProps = {
   category: CategoryDefinition;
@@ -45,45 +47,66 @@ export function CategoryListTab({
   });
 
   return (
-    <div className="category-list-view" role="table" aria-label={`${category.title} templates`}>
+    <div className="category-list-view" role="list" aria-label={`${category.title} templates`}>
       {filteredTemplates.map((template) => {
         const isChecked = selectedTemplateIds.includes(template.templateId);
         const imageSrc = mapImagePath(template.data.image_path);
 
         return (
-          <label className="category-list-row" key={template.templateId}>
-            <input
-              className="template-checkbox"
-              type="checkbox"
-              checked={isChecked}
-              onChange={() => onToggleTemplate(category.id, template.templateId)}
-            />
-            <span className="template-row-title">{template.title}</span>
-            <button
+          <div
+            className={isChecked ? 'category-list-row is-selected' : 'category-list-row'}
+            role="listitem"
+            key={template.templateId}
+          >
+            <label className="row-selection">
+              <input
+                className="template-checkbox"
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => onToggleTemplate(category.id, template.templateId)}
+              />
+              <span className="row-thumbnail" aria-hidden="true">
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
+                    alt=""
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.hidden = true;
+                    }}
+                  />
+                ) : (
+                  <ImageOff size={15} />
+                )}
+              </span>
+              <span className="template-row-title">{template.title}</span>
+            </label>
+            <IconButton
               type="button"
               className={
                 template.data.favorite
                   ? 'favorite-toggle-button is-active'
                   : 'favorite-toggle-button'
               }
-              aria-label={
+              label={
                 template.data.favorite
                   ? `Remove ${template.title} from favorites`
                   : `Mark ${template.title} as favorite`
               }
               title={template.data.favorite ? 'Favorite entry' : 'Mark as favorite'}
+              aria-pressed={template.data.favorite}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 onToggleFavorite(category.id, template.templateId, !template.data.favorite);
               }}
             >
-              {template.data.favorite ? '★' : '☆'}
-            </button>
-            <button
+              <Star size={16} fill={template.data.favorite ? 'currentColor' : 'none'} />
+            </IconButton>
+            <IconButton
               type="button"
               className="entry-edit-button"
-              aria-label={`Edit ${template.title}`}
+              label={`Edit ${template.title}`}
               title={`Edit ${template.title}`}
               onClick={(event) => {
                 event.preventDefault();
@@ -91,8 +114,8 @@ export function CategoryListTab({
                 onEditTemplate(category.id, template.templateId);
               }}
             >
-              ✎
-            </button>
+              <Pencil size={15} />
+            </IconButton>
 
             <span className="template-hover-tooltip" role="tooltip" aria-hidden="true">
               {imageSrc ? (
@@ -113,7 +136,7 @@ export function CategoryListTab({
                 <span>Negative: {template.data.negative_prompt || '-'}</span>
               </span>
             </span>
-          </label>
+          </div>
         );
       })}
 

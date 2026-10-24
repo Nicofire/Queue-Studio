@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { AddCategoryModal } from '../components/AddCategoryModal';
@@ -356,7 +357,7 @@ export function ListViewPage({
     <>
       <div className="category-search-row">
         <label className="field-group" htmlFor="category-entry-search">
-          <span className="field-label">Search Entries</span>
+          <span className="field-label">Search all categories</span>
           <input
             id="category-entry-search"
             className="text-input"
@@ -368,7 +369,7 @@ export function ListViewPage({
         </label>
         {normalizedSearch ? <p className="field-hint">Matches: {matchingEntryCount}</p> : null}
         <button className="secondary-button" type="button" onClick={handleOpenAddModal}>
-          + Add Category
+          <Plus size={16} /> Add category
         </button>
       </div>
 
@@ -416,8 +417,11 @@ export function ListViewPage({
       />
 
       {categories.length === 0 ? (
-        <section className="queue-summary">
-          <p className="field-hint is-error">No category files found in data/categorys.</p>
+        <section className="empty-state">
+          <h3>No categories yet</h3>
+          <button type="button" className="secondary-button" onClick={handleOpenAddModal}>
+            <Plus size={16} /> Add category
+          </button>
         </section>
       ) : null}
 

@@ -26,3 +26,6 @@ output
 *.sw?
 
 /public/static/*
+
+/test-results/
+/playwright-report/

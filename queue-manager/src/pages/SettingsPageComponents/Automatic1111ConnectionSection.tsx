@@ -1,3 +1,4 @@
+import { Cable, Dices, Moon, Save, Sun } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -16,24 +17,23 @@ import type {
   GenerationSettings,
   GenericSettings,
   PersistedGenerationSettings,
-  SaveStatusHandlers,
 } from './settingsTypes';
 
-type Automatic1111ConnectionSectionProps = SaveStatusHandlers & {
+type Automatic1111ConnectionSectionProps = {
+  section: 'connection' | 'appearance';
   generationSettings: GenerationSettings;
   setGenerationSettings: Dispatch<SetStateAction<GenerationSettings>>;
-  saveResult: string | null;
-  saveError: boolean;
 };
 
 export function Automatic1111ConnectionSection({
+  section,
   generationSettings,
   setGenerationSettings,
-  saveResult,
-  saveError,
-  setSaveResult,
-  setSaveError,
 }: Automatic1111ConnectionSectionProps) {
+  const [saveStatus, setSaveStatus] = useState<
+    Partial<Record<'connection' | 'appearance', { message: string; isError: boolean }>>
+  >({});
+  const [savingSection, setSavingSection] = useState<'connection' | 'appearance' | null>(null);
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
@@ -70,22 +70,29 @@ export function Automatic1111ConnectionSection({
     updateSection: (current: PersistedGenerationSettings) => PersistedGenerationSettings,
     successMessage: string
   ) {
+    if (savingSection) return;
+    setSavingSection(section);
     void (async () => {
       try {
         const snapshot = await readPersistedSettingsSnapshot();
         const nextPayload = updateSection(snapshot);
         await saveJsonToProject(REMOTE_JSON_PATHS.generationSettings, nextPayload);
         setGenerationSettings(nextSettings);
-        setSaveResult(successMessage);
-        setSaveError(false);
+        setSaveStatus((current) => ({
+          ...current,
+          [section]: { message: successMessage, isError: false },
+        }));
       } catch (error) {
-        setSaveResult(
-          error instanceof Error
-            ? `${successMessage} fehlgeschlagen: ${error.message}`
-            : `${successMessage} fehlgeschlagen.`
-        );
-        setSaveError(true);
+        setSaveStatus((current) => ({
+          ...current,
+          [section]: {
+            message: error instanceof Error ? error.message : 'Could not save settings.',
+            isError: true,
+          },
+        }));
         downloadJsonFile('settings.json', buildFallbackPersistedSettings());
+      } finally {
+        setSavingSection(null);
       }
     })();
   }
@@ -137,10 +144,10 @@ export function Automatic1111ConnectionSection({
 
   return (
     <>
-      <section className="settings-section">
+      <section className="settings-section" hidden={section !== 'connection'}>
         <div className="settings-header">
-          <p className="panel-label">Generation settings</p>
-          <h2>Automatic1111 connection</h2>
+          <p className="panel-label">Automatic1111</p>
+          <h2>Connection & generation</h2>
         </div>
 
         <div className="settings-grid">
@@ -196,7 +203,8 @@ export function Automatic1111ConnectionSection({
                 }}
                 disabled={isTestingConnection}
               >
-                {isTestingConnection ? 'Testing…' : 'Test Connection'}
+                <Cable size={16} />
+                {isTestingConnection ? 'Testing...' : 'Test connection'}
               </button>
             </div>
             {connectionResult ? (
@@ -231,23 +239,12 @@ export function Automatic1111ConnectionSection({
           </label>
 
           <div className="field-group">
-            <span className="field-label">Seed</span>
+            <label className="field-label" htmlFor="generation-seed">
+              Seed
+            </label>
             <div className="seed-row">
               <input
-                className="seed-slider"
-                type="range"
-                min="-1"
-                max="2147483647"
-                step="1"
-                value={generationSettings.seed}
-                onChange={(event) =>
-                  setGenerationSettings((current) => ({
-                    ...current,
-                    seed: Number(event.target.value),
-                  }))
-                }
-              />
-              <input
+                id="generation-seed"
                 className="text-input seed-input"
                 type="number"
                 value={generationSettings.seed}
@@ -268,13 +265,13 @@ export function Automatic1111ConnectionSection({
                   }))
                 }
               >
-                Random (-1)
+                <Dices size={16} /> Random
               </button>
             </div>
             <p className="field-hint">-1 means random seed in Automatic1111.</p>
           </div>
 
-          <div className="settings-grid two-columns">
+          <div className="settings-grid generation-dimensions">
             <label className="field-group">
               <span className="field-label">Steps</span>
               <input
@@ -335,7 +332,8 @@ export function Automatic1111ConnectionSection({
             <div className="inline-actions">
               <button
                 type="button"
-                className="secondary-button"
+                className="primary-button"
+                disabled={savingSection !== null}
                 onClick={() => {
                   const nextSettings = {
                     ...generationSettings,
@@ -357,24 +355,30 @@ export function Automatic1111ConnectionSection({
                       ...current,
                       connection: nextConnection,
                     }),
-                    'Connection settings wurden im Projektordner gespeichert.'
+                    'Connection and generation settings saved.'
                   );
                 }}
               >
-                Save connection settings
+                <Save size={16} />
+                {savingSection === 'connection' ? 'Saving...' : 'Save connection settings'}
               </button>
             </div>
-            {saveResult ? (
-              <p className={`field-hint ${saveError ? 'is-error' : 'is-success'}`}>{saveResult}</p>
+            {saveStatus.connection ? (
+              <p
+                role="status"
+                className={`field-hint ${saveStatus.connection.isError ? 'is-error' : 'is-success'}`}
+              >
+                {saveStatus.connection.message}
+              </p>
             ) : null}
           </div>
         </div>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" hidden={section !== 'appearance'}>
         <div className="settings-header">
-          <p className="panel-label">Settings</p>
-          <h2>Generic settings</h2>
+          <p className="panel-label">Workspace</p>
+          <h2>Appearance</h2>
         </div>
 
         <div className="settings-grid">
@@ -386,6 +390,7 @@ export function Automatic1111ConnectionSection({
                 className={
                   generationSettings.theme === 'light' ? 'toggle-button is-active' : 'toggle-button'
                 }
+                aria-pressed={generationSettings.theme === 'light'}
                 onClick={() =>
                   setGenerationSettings((current) => ({
                     ...current,
@@ -393,13 +398,14 @@ export function Automatic1111ConnectionSection({
                   }))
                 }
               >
-                Light
+                <Sun size={17} /> Light
               </button>
               <button
                 type="button"
                 className={
                   generationSettings.theme === 'dark' ? 'toggle-button is-active' : 'toggle-button'
                 }
+                aria-pressed={generationSettings.theme === 'dark'}
                 onClick={() =>
                   setGenerationSettings((current) => ({
                     ...current,
@@ -407,14 +413,14 @@ export function Automatic1111ConnectionSection({
                   }))
                 }
               >
-                Dark
+                <Moon size={17} /> Dark
               </button>
             </div>
-            <p className="field-hint">Theme preference is stored in settings.json.</p>
             <div className="inline-actions">
               <button
                 type="button"
-                className="secondary-button"
+                className="primary-button"
+                disabled={savingSection !== null}
                 onClick={() => {
                   const nextSettings = {
                     ...generationSettings,
@@ -431,15 +437,21 @@ export function Automatic1111ConnectionSection({
                       ...current,
                       generic: nextGeneric,
                     }),
-                    'Generic settings wurden im Projektordner gespeichert.'
+                    'Appearance saved.'
                   );
                 }}
               >
-                Save generic settings
+                <Save size={16} />
+                {savingSection === 'appearance' ? 'Saving...' : 'Save appearance'}
               </button>
             </div>
-            {saveResult ? (
-              <p className={`field-hint ${saveError ? 'is-error' : 'is-success'}`}>{saveResult}</p>
+            {saveStatus.appearance ? (
+              <p
+                role="status"
+                className={`field-hint ${saveStatus.appearance.isError ? 'is-error' : 'is-success'}`}
+              >
+                {saveStatus.appearance.message}
+              </p>
             ) : null}
           </div>
         </div>
