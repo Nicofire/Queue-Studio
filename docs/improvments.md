@@ -16,7 +16,7 @@ The project is currently a capable local development prototype, not yet a deploy
 
 Validation reveals one concrete server security boundary issue, but it is the category ID, not the uploaded image name: several endpoints interpolate client-supplied `categoryId`/`oldId` into `path.resolve` without first requiring a slug. The request reader is also unbounded, so base64 uploads can consume arbitrary memory before endpoint validation runs.
 
-Searched for files matching `**/queue-manager/**/*.{test,spec}.{ts,tsx,js,jsx}`, no matches
+Searched for files matching `**/queue-studio/**/*.{test,spec}.{ts,tsx,js,jsx}`, no matches
 
 No matches found. Your search pattern might be excluded completely by either the search.exclude settings or .*ignore files.
 If you believe that it should have results, you can check into the .*ignore files and the exclude setting (here are some excluded patterns for reference:[**/node_modules,**/bower_components,**/*.code-search]).

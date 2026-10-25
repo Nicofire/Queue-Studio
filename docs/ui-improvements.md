@@ -45,16 +45,16 @@ Die Suite ist eine Regressionstestbasis, kein vollstaendiges Accessibility-Audit
 Aus dem Repository-Hauptverzeichnis:
 
 ```powershell
-npm --prefix queue-manager run dev -- --host 127.0.0.1
-npm --prefix queue-manager run build
-npm --prefix queue-manager run lint
-npm --prefix queue-manager run test:ui
+npm run dev -- --host 127.0.0.1
+npm run build
+npm run lint
+npm run test:ui
 ```
 
 Vor dem ersten Browser-Testlauf einmal Chromium installieren:
 
 ```powershell
-& .\queue-manager\node_modules\.bin\playwright.cmd install chromium
+& .\node_modules\.bin\playwright.cmd install chromium
 ```
 
 Die Tests starten ihren eigenen Vite-Server auf Port 5181. Alle API-Aufrufe werden

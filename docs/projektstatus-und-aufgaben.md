@@ -9,7 +9,7 @@ dass alle Funktionen in dieser Bestandsaufnahme praktisch getestet wurden.
 ## Kurzfassung
 
 Das Projekt ist deutlich weiter als die alte Architekturanalyse und die README:
-Es gibt eine lokale Queue-Manager-Webapp mit Kategorien, zwei Ansichten,
+Es gibt eine lokale Queue-Studio-Webapp mit Kategorien, zwei Ansichten,
 Eintragseditor, Einstellungen und einer AUTOMATIC1111-Generierungswarteschlange.
 Mehrere der damals wichtigsten Architekturprobleme wurden bereits bearbeitet.
 
@@ -111,8 +111,8 @@ zuverlaessigere Speicherung und ein geklaerter Betriebsweg ohne Vite-Dev-Server.
 
 ## Pruefung Bei Dieser Bestandsaufnahme
 
-- `npm --prefix queue-manager run build`: erfolgreich.
-- `npm --prefix queue-manager run lint`: erfolgreich.
+- `npm run build`: erfolgreich.
+- `npm run lint`: erfolgreich.
 - Keine automatisierten Tests fuer die Webapp gefunden; Python-Altbestand ausgenommen.
 - Kein Browser-/Live-Test gegen AUTOMATIC1111 durchgefuehrt.
 - Keine Laufzeitgarantie fuer Bildgenerierung, Pause/Abbruch oder Dateifehler aus
