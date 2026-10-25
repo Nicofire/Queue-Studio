@@ -6,13 +6,13 @@ import path from 'node:path';
 import {
   GenerationStatistics,
   type GenerationStatisticsSnapshot,
-} from '../src/features/generation/generationStatistics';
+} from '../src/features/generation/generationStatistics.ts';
 import {
   composeGenerationPrompt,
   resolveSelectedPresetText,
   type PromptPresetSource,
-} from '../src/features/generation/promptComposition';
-import { pathExists, readRequestBody, RequestBodyTooLargeError, sendJson } from './http-utils';
+} from '../src/features/generation/promptComposition.ts';
+import { pathExists, readRequestBody, RequestBodyTooLargeError, sendJson } from './http-utils.ts';
 
 export const GENERATION_STATUS_PATH = '/api/generation/status';
 export const GENERATION_QUEUE_ADD_PATH = '/api/generation/queue/add';

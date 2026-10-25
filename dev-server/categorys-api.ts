@@ -6,8 +6,8 @@ import {
   readPlaceIdFromJsonContent,
   slugifyCategoryName,
   toCategoryTitleFromSlug,
-} from './categorys-utils';
-import { pathExists, readRequestBody, RequestBodyTooLargeError, sendJson } from './http-utils';
+} from './categorys-utils.ts';
+import { pathExists, readRequestBody, RequestBodyTooLargeError, sendJson } from './http-utils.ts';
 
 export const CATEGORIES_LIST_PATH = '/api/categories';
 export const CATEGORY_CREATE_PATH = '/api/categorys';

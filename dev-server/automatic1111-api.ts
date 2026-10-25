@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-import { sendJson } from './http-utils';
+import { sendJson } from './http-utils.ts';
 
 export const AUTOMATIC1111_MODELS_PATH = '/api/automatic1111/models';
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-import { createProjectApiPlugin } from './dev-server/project-api-plugin';
+import { createProjectApiPlugin } from './dev-server/project-api-plugin.ts';
 
 const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
