@@ -2,9 +2,12 @@
   "connection": {
     "apiUrl": "http://127.0.0.1:7860",
     "model": "",
-    "seed": -1
+    "seed": -1,
+    "steps": 25,
+    "width": 1024,
+    "height": 1024
   },
   "generic": {
-    "theme": "light"
+    "theme": "dark"
   }
 }
