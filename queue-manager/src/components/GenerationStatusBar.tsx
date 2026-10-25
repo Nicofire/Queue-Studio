@@ -1,4 +1,5 @@
 import { Circle, FolderOpen, LoaderCircle, Pause, Play, Plus, Square } from 'lucide-react';
+import { formatGenerationDuration } from '../features/generation/generationStatistics';
 import type { GenerationQueueController } from '../features/generation/useGenerationQueue';
 import { IconButton } from './IconButton';
 
@@ -31,7 +32,14 @@ export function GenerationStatusBar({
         )}
         <span>
           {queue.isConnected ? queue.status : 'Connecting'}
-          <small>{queue.queueLength} queued</small>
+          <small>
+            {queue.queueLength} queued
+            {queue.isBusy && queue.isConnected
+              ? queue.statistics.estimatedRemainingSeconds === null
+                ? ' / Estimating...'
+                : ` / ~ ${formatGenerationDuration(queue.statistics.estimatedRemainingSeconds)} remaining`
+              : ''}
+          </small>
         </span>
         {queue.runTotal > 0 ? (
           <span className="tabular">

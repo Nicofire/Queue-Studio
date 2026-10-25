@@ -1,3 +1,5 @@
+import type { GenerationStatisticsSnapshot } from './generationStatistics';
+
 export type GenerationStatus = 'idle' | 'running' | 'paused' | 'aborted' | 'completed';
 
 export type GenerationQueueItemPayload = {
@@ -22,6 +24,7 @@ export type GenerationStatusResponse = {
   runTotal: number;
   runCompleted: number;
   lastError: string | null;
+  statistics?: GenerationStatisticsSnapshot;
 };
 
 const GENERATION_STATUS_PATH = '/api/generation/status';

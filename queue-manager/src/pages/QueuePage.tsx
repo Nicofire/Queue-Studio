@@ -6,6 +6,7 @@ import {
   LoaderCircle,
   Trash2,
 } from 'lucide-react';
+import { formatGenerationDuration } from '../features/generation/generationStatistics';
 import type { GenerationQueueController } from '../features/generation/useGenerationQueue';
 
 export function QueuePage({
@@ -15,6 +16,15 @@ export function QueuePage({
   queue: GenerationQueueController;
   onOpenLibrary: () => void;
 }) {
+  const { statistics } = queue;
+  const remaining = !queue.isConnected
+    ? 'Unavailable'
+    : statistics.estimatedRemainingSeconds === null
+      ? queue.isBusy
+        ? 'After first image'
+        : 'Not available'
+      : `${queue.isBusy ? '~ ' : ''}${formatGenerationDuration(statistics.estimatedRemainingSeconds)}`;
+
   return (
     <section className="queue-page" aria-label="Generation queue">
       <div className="section-toolbar">
@@ -65,12 +75,43 @@ export function QueuePage({
           <progress max={100} value={queue.progress} aria-label="Generation progress" />
         </div>
       </div>
+      <dl className="queue-statistics" aria-label="Run statistics">
+        <div>
+          <dt>Generated images</dt>
+          <dd>{statistics.generatedImages.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Average / image</dt>
+          <dd>
+            {statistics.averageSecondsPerImage === null
+              ? 'Not measured'
+              : `${statistics.averageSecondsPerImage.toFixed(1)} s`}
+          </dd>
+        </div>
+        <div>
+          <dt>Last image</dt>
+          <dd>
+            {statistics.lastSecondsPerImage === null
+              ? 'Not measured'
+              : `${statistics.lastSecondsPerImage.toFixed(1)} s`}
+          </dd>
+        </div>
+        <div>
+          <dt>{queue.status === 'paused' ? 'Remaining work (paused)' : 'Estimated remaining'}</dt>
+          <dd>{remaining}</dd>
+        </div>
+      </dl>
       {queue.activeJobLabel ? (
         <div className="queue-current-job">
           <LoaderCircle size={19} className={queue.status === 'running' ? 'spin' : ''} />
           <div>
             <span className="eyebrow">Current job</span>
             <p>{queue.activeJobLabel}</p>
+            {statistics.activeJobSeconds !== null ? (
+              <span className="field-hint">
+                Elapsed: {formatGenerationDuration(statistics.activeJobSeconds)}
+              </span>
+            ) : null}
           </div>
         </div>
       ) : null}

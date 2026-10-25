@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { Buffer } from 'node:buffer';
 import type { CategoryDefinition } from '../src/features/categories/categoryTypes';
 import type { GenerationStatusResponse } from '../src/features/generation/generationApi';
 
@@ -172,6 +173,67 @@ test.beforeEach(async ({ page }) => {
     page.getByRole('button', { name: 'Add entry to Characters', exact: true })
   ).toBeVisible();
   await expect(page.getByText('Queue server online')).toBeVisible();
+});
+
+test('queue statistics show image timings and an estimated remaining duration', async ({
+  page,
+}, testInfo) => {
+  await page.clock.install();
+  const snapshot: GenerationStatusResponse = {
+    status: 'running',
+    queueLength: 10,
+    queuePreview: Array.from({ length: 10 }, (_, index) => ({
+      id: `waiting-${index}`,
+      summary: `Landscape ${index + 1}`,
+    })),
+    activeJobLabel: 'Landscape',
+    runCompleted: 0,
+    runTotal: 17,
+    lastError: null,
+    statistics: {
+      generatedImages: 0,
+      averageSecondsPerImage: null,
+      lastSecondsPerImage: null,
+      activeJobSeconds: 3,
+      estimatedRemainingSeconds: null,
+    },
+  };
+  await page.route('**/api/generation/status', (route) => route.fulfill({ json: snapshot }));
+  await page.clock.fastForward(1600);
+  await page.getByRole('button', { name: 'Queue', exact: true }).click();
+  const metrics = page.locator('.queue-statistics');
+  await expect(metrics.getByText('Not measured', { exact: true })).toHaveCount(2);
+  await expect(metrics.getByText('After first image', { exact: true })).toBeVisible();
+  snapshot.runCompleted = 6;
+  snapshot.statistics = {
+    generatedImages: 6,
+    averageSecondsPerImage: 12.5,
+    lastSecondsPerImage: 14,
+    activeJobSeconds: 5,
+    estimatedRemainingSeconds: 125,
+  };
+  await page.clock.fastForward(1600);
+  await expect(metrics.getByText('12.5 s', { exact: true })).toBeVisible();
+  await expect(metrics.getByText('14.0 s', { exact: true })).toBeVisible();
+  await expect(metrics.getByText('~ 2m 5s', { exact: true })).toBeVisible();
+  await expect(page.locator('.queue-status-link small')).toHaveText(
+    '10 queued / ~ 2m 5s remaining'
+  );
+  await page.screenshot({
+    path: testInfo.outputPath('queue-statistics.png'),
+    animations: 'disabled',
+  });
+  snapshot.status = 'paused';
+  snapshot.activeJobLabel = null;
+  snapshot.statistics.activeJobSeconds = null;
+  await page.clock.fastForward(60000);
+  await expect(metrics.getByText('Remaining work (paused)', { exact: true })).toBeVisible();
+  await expect(metrics.getByText('~ 2m 5s', { exact: true })).toBeVisible();
+  snapshot.status = 'completed';
+  snapshot.queueLength = 0;
+  snapshot.statistics.estimatedRemainingSeconds = 0;
+  await page.clock.fastForward(1600);
+  await expect(metrics.getByText('0s', { exact: true })).toBeVisible();
 });
 
 for (const theme of ['light', 'dark'] as const) {
@@ -567,21 +629,17 @@ test('image upload, replacement and removal preserve save payloads', async ({ pa
     .getByRole('button', { name: 'Edit Aster', exact: true })
     .filter({ visible: true })
     .click();
-  await page
-    .getByLabel('Upload image')
-    .setInputFiles({
-      name: 'original.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from(PREVIEW, 'base64'),
-    });
+  await page.getByLabel('Upload image').setInputFiles({
+    name: 'original.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(PREVIEW, 'base64'),
+  });
   await expect(page.getByAltText('Entry preview')).toBeVisible();
-  await page
-    .getByLabel('Upload image')
-    .setInputFiles({
-      name: 'replacement.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from(PREVIEW, 'base64'),
-    });
+  await page.getByLabel('Upload image').setInputFiles({
+    name: 'replacement.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(PREVIEW, 'base64'),
+  });
   const replacement = page.waitForRequest((request) =>
     request.url().endsWith('/api/categorys/entries/update')
   );

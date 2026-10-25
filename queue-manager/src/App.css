@@ -352,6 +352,29 @@
   display: grid;
   gap: 10px;
 }
+.queue-statistics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 20px;
+  margin: 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.queue-statistics > div {
+  min-width: 0;
+}
+.queue-statistics dt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.queue-statistics dd {
+  margin: 6px 0 0;
+  color: var(--text-h);
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
 progress {
   display: block;
   width: 100%;

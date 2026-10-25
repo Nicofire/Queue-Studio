@@ -4,6 +4,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 
 import {
+  GenerationStatistics,
+  type GenerationStatisticsSnapshot,
+} from '../src/features/generation/generationStatistics';
+import {
   composeGenerationPrompt,
   resolveSelectedPresetText,
   type PromptPresetSource,
@@ -46,6 +50,7 @@ type StatusPayload = {
   runTotal: number;
   runCompleted: number;
   lastError: string | null;
+  statistics: GenerationStatisticsSnapshot;
 };
 
 type NormalizedSettings = {
@@ -70,6 +75,7 @@ let lastError: string | null = null;
 let workerPromise: Promise<void> | null = null;
 let wakeWorker: (() => void) | null = null;
 let activeRequestController: AbortController | null = null;
+const generationStatistics = new GenerationStatistics();
 
 function normalizeApiUrl(apiUrl: string) {
   return apiUrl.trim().replace(/\/+$/, '');
@@ -170,6 +176,7 @@ function buildStatusPayload(): StatusPayload {
     runTotal,
     runCompleted,
     lastError,
+    statistics: generationStatistics.snapshot(queueItems.length, queueStatus),
   };
 }
 
@@ -290,6 +297,7 @@ async function runTxt2ImgJob(projectRoot: string, item: QueueItem) {
   const settings = await loadGenerationSettings(projectRoot);
   const images = await requestTxt2Img(settings, item);
   await saveGeneratedImages(projectRoot, item, images);
+  return images.length;
 }
 
 /** Preview grid sizes the entry editor is allowed to request in a single batched call. */
@@ -400,10 +408,13 @@ async function processQueue(projectRoot: string) {
       }
 
       activeJobLabel = nextItem.summary;
+      generationStatistics.startJob();
 
       try {
-        await runTxt2ImgJob(projectRoot, nextItem);
+        const imageCount = await runTxt2ImgJob(projectRoot, nextItem);
+        generationStatistics.finishJob(imageCount);
       } catch (error) {
+        generationStatistics.cancelJob();
         lastError = error instanceof Error ? error.message : 'Could not run generation job.';
       } finally {
         runCompleted += 1;
@@ -512,6 +523,7 @@ async function handleQueueAdd(req: IncomingMessage, res: ServerResponse) {
     runTotal = 0;
     runCompleted = 0;
     lastError = null;
+    generationStatistics.reset();
 
     sendJson(res, 200, buildStatusPayload());
   } catch (error) {
@@ -547,6 +559,7 @@ async function handleQueueClear(req: IncomingMessage, res: ServerResponse) {
   runTotal = 0;
   runCompleted = 0;
   lastError = null;
+  generationStatistics.reset();
 
   sendJson(res, 200, buildStatusPayload());
   return true;
@@ -581,6 +594,7 @@ async function handleStart(req: IncomingMessage, res: ServerResponse, projectRoo
   runTotal = queueItems.length;
   runCompleted = 0;
   lastError = null;
+  generationStatistics.reset();
   void processQueue(projectRoot);
 
   sendJson(res, 200, buildStatusPayload());
@@ -624,6 +638,7 @@ async function handleAbort(req: IncomingMessage, res: ServerResponse) {
   runTotal = 0;
   runCompleted = 0;
   lastError = 'Aborted by user.';
+  generationStatistics.cancelJob();
 
   activeRequestController?.abort();
   activeRequestController = null;

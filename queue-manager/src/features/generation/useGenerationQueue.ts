@@ -17,6 +17,7 @@ import {
   type GenerationQueueItemPayload,
   type GenerationStatusResponse,
 } from './generationApi';
+import { EMPTY_GENERATION_STATISTICS } from './generationStatistics';
 import { composeGenerationPrompt } from './promptComposition';
 
 type Selection = {
@@ -174,6 +175,7 @@ export function useGenerationQueue(selection: Selection) {
 
   return {
     ...status,
+    statistics: status.statistics ?? EMPTY_GENERATION_STATISTICS,
     isBusy,
     isSyncing,
     isConnected,
