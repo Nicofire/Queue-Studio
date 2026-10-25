@@ -13,14 +13,24 @@ import {
   parseA1111Parameters,
   readFileAsDataUrl,
 } from '../features/categories/imageMetadata';
+import type { WorkflowPreset } from '../features/generation/comfyWorkflow';
 import { generatePreviewImage } from '../features/generation/generationApi';
-import { fetchModelsViaProxy } from '../pages/SettingsPageComponents/settingsApi';
+import {
+  getActiveConnection,
+  toPersistedGenerationSettings,
+  type GenerationSettings,
+} from '../features/settings/generationSettings';
+import {
+  fetchGenerationModels,
+  requestGenerationJson,
+} from '../pages/SettingsPageComponents/settingsApi';
 
 type CategoryEntryModalProps = {
   mode: 'create' | 'edit';
   categoryTitle: string;
   entry: CategoryTemplateEntry | null;
-  automaticApiUrl: string;
+  generationSettings: GenerationSettings;
+  generationBusy: boolean;
   errorMessage: string | null;
   isSaving: boolean;
   isDeleting: boolean;
@@ -45,7 +55,8 @@ export function CategoryEntryModal({
   mode,
   categoryTitle,
   entry,
-  automaticApiUrl,
+  generationSettings,
+  generationBusy,
   errorMessage,
   isSaving,
   isDeleting,
@@ -53,6 +64,7 @@ export function CategoryEntryModal({
   onSave,
   onDelete,
 }: CategoryEntryModalProps) {
+  const connection = getActiveConnection(generationSettings);
   const [entryName, setEntryName] = useState(entry?.title ?? '');
   const [positivePrompt, setPositivePrompt] = useState(entry?.data.positive_prompt ?? '');
   const [negativePrompt, setNegativePrompt] = useState(entry?.data.negative_prompt ?? '');
@@ -62,7 +74,13 @@ export function CategoryEntryModal({
   const [selectedImagePreview, setSelectedImagePreview] = useState('');
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedGeneratedIndex, setSelectedGeneratedIndex] = useState<number | null>(null);
-  const [batchSize, setBatchSize] = useState<4 | 9>(4);
+  const [batchSize, setBatchSize] = useState<1 | 4 | 9>(4);
+  const [workflow, setWorkflow] = useState<WorkflowPreset | null>(null);
+  const canBatch =
+    connection.provider !== 'comfyui' ||
+    connection.workflowId === 'builtin-txt2img' ||
+    Boolean(workflow?.bindings.batchSize?.length);
+  const previewBatchSize = canBatch ? batchSize : 1;
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -73,6 +91,7 @@ export function CategoryEntryModal({
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const objectUrlRef = useRef('');
+  const previewControllerRef = useRef<AbortController | null>(null);
 
   const existingImageSrc = mapImagePath(entry?.data.image_path ?? '');
 
@@ -92,6 +111,7 @@ export function CategoryEntryModal({
 
   useEffect(
     () => () => {
+      previewControllerRef.current?.abort();
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current);
       }
@@ -104,10 +124,14 @@ export function CategoryEntryModal({
 
     void (async () => {
       try {
-        const models = await fetchModelsViaProxy(automaticApiUrl, controller.signal);
-        const names = models
-          .map((item) => item.title ?? item.model_name ?? '')
-          .filter((name) => name.length > 0);
+        const models = await fetchGenerationModels(
+          connection.provider,
+          connection.apiUrl,
+          controller.signal,
+          connection.workflowId
+        );
+        if (controller.signal.aborted) return;
+        const names = models.map((item) => item.id);
         setModelOptions(names);
         setModelListFailed(names.length === 0);
       } catch {
@@ -118,7 +142,21 @@ export function CategoryEntryModal({
     })();
 
     return () => controller.abort();
-  }, [automaticApiUrl]);
+  }, [connection.provider, connection.apiUrl, connection.workflowId]);
+
+  useEffect(() => {
+    if (connection.provider !== 'comfyui') return;
+    const controller = new AbortController();
+    void requestGenerationJson<WorkflowPreset>(
+      `/api/generation/workflows/${encodeURIComponent(connection.workflowId)}`,
+      { signal: controller.signal }
+    )
+      .then((value) => {
+        if (!controller.signal.aborted) setWorkflow(value);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [connection.provider, connection.workflowId]);
 
   const hasGeneratedGrid = generatedImages.length > 0;
   const selectedGeneratedImage =
@@ -174,6 +212,10 @@ export function CategoryEntryModal({
   };
 
   const handleGenerate = async () => {
+    if (generationBusy) {
+      setGenerateError('Another generation operation is active.');
+      return;
+    }
     if (!positivePrompt.trim() && !loras.trim()) {
       setGenerateError('Add a positive prompt or LoRA before generating a preview.');
       return;
@@ -181,15 +223,21 @@ export function CategoryEntryModal({
 
     setGenerateError(null);
     setIsGenerating(true);
+    const controller = new AbortController();
+    previewControllerRef.current = controller;
 
     try {
-      const result = await generatePreviewImage({
-        positive_prompt: positivePrompt.trim(),
-        negative_prompt: negativePrompt.trim(),
-        loras: loras.trim(),
-        model: model.trim() || undefined,
-        batchSize,
-      });
+      const result = await generatePreviewImage(
+        {
+          expectedConnection: toPersistedGenerationSettings(generationSettings).connection,
+          positive_prompt: positivePrompt.trim(),
+          negative_prompt: negativePrompt.trim(),
+          loras: loras.trim(),
+          model: model.trim() || undefined,
+          batchSize: previewBatchSize,
+        },
+        controller.signal
+      );
 
       setGeneratedImages(result.images);
       setSelectedGeneratedIndex(result.images.length > 0 ? 0 : null);
@@ -200,9 +248,14 @@ export function CategoryEntryModal({
       }
     } catch (error) {
       setGenerateError(
-        error instanceof Error ? error.message : 'Could not generate a preview image.'
+        controller.signal.aborted
+          ? 'Preview cancelled.'
+          : error instanceof Error
+            ? error.message
+            : 'Could not generate a preview image.'
       );
     } finally {
+      if (previewControllerRef.current === controller) previewControllerRef.current = null;
       setIsGenerating(false);
     }
   };
@@ -380,7 +433,7 @@ export function CategoryEntryModal({
             <p className="field-label">Preview image</p>
             {hasGeneratedGrid ? (
               <div
-                className={`entry-generated-grid entry-generated-grid-${generatedImages.length > 4 ? 9 : 4}`}
+                className={`entry-generated-grid entry-generated-grid-${generatedImages.length === 1 ? 1 : generatedImages.length > 4 ? 9 : 4}`}
                 role="group"
                 aria-label="Generated preview images"
               >
@@ -442,19 +495,34 @@ export function CategoryEntryModal({
               <div className="entry-batch-size-toggle" role="group" aria-label="Batch size">
                 <button
                   type="button"
-                  className={batchSize === 4 ? 'secondary-button is-active' : 'secondary-button'}
-                  onClick={() => setBatchSize(4)}
+                  className={
+                    previewBatchSize === 1 ? 'secondary-button is-active' : 'secondary-button'
+                  }
+                  onClick={() => setBatchSize(1)}
                   disabled={isBusy}
-                  aria-pressed={batchSize === 4}
+                  aria-pressed={previewBatchSize === 1}
+                >
+                  1
+                </button>
+                <button
+                  type="button"
+                  className={
+                    previewBatchSize === 4 ? 'secondary-button is-active' : 'secondary-button'
+                  }
+                  onClick={() => setBatchSize(4)}
+                  disabled={isBusy || !canBatch}
+                  aria-pressed={previewBatchSize === 4}
                 >
                   2x2
                 </button>
                 <button
                   type="button"
-                  className={batchSize === 9 ? 'secondary-button is-active' : 'secondary-button'}
+                  className={
+                    previewBatchSize === 9 ? 'secondary-button is-active' : 'secondary-button'
+                  }
                   onClick={() => setBatchSize(9)}
-                  disabled={isBusy}
-                  aria-pressed={batchSize === 9}
+                  disabled={isBusy || !canBatch}
+                  aria-pressed={previewBatchSize === 9}
                 >
                   3x3
                 </button>
@@ -463,7 +531,7 @@ export function CategoryEntryModal({
                 type="button"
                 className="secondary-button"
                 onClick={() => void handleGenerate()}
-                disabled={isBusy}
+                disabled={isBusy || generationBusy}
                 title="Generate a batch of preview images from the fields above"
               >
                 {isGenerating ? (
@@ -471,8 +539,16 @@ export function CategoryEntryModal({
                 ) : (
                   <Sparkles size={16} />
                 )}
-                {isGenerating ? 'Generating...' : `Generate ${batchSize}`}
+                {isGenerating ? 'Generating...' : `Generate ${previewBatchSize}`}
               </button>
+              {isGenerating ? (
+                <IconButton
+                  label="Cancel generation"
+                  onClick={() => previewControllerRef.current?.abort()}
+                >
+                  <X size={16} />
+                </IconButton>
+              ) : null}
               {hasImage ? (
                 <button
                   type="button"

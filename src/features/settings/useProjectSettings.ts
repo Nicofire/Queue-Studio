@@ -26,7 +26,11 @@ function getInitialGenerationSettings() {
   };
 
   const stored = readStoredJson<unknown>(STORAGE_KEYS.generationSettings);
-  return fromPersistedGenerationSettings(stored, fallback);
+  try {
+    return fromPersistedGenerationSettings(stored, fallback);
+  } catch {
+    return fallback;
+  }
 }
 
 /**
@@ -42,6 +46,7 @@ export function useProjectSettings() {
     getInitialGenerationSettings
   );
   const [hasHydratedSettings, setHasHydratedSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -58,21 +63,25 @@ export function useProjectSettings() {
           fetchJson<unknown>(REMOTE_JSON_PATHS.generationSettings, null),
         ]);
 
-      const remoteGenerationSettings = fromPersistedGenerationSettings(
-        remoteGenerationSettingsRaw,
-        DEFAULT_GENERATION_SETTINGS
-      );
-
       setPositivePresetGroup(
         remotePositivePresets ?? storedPositivePresets ?? DEFAULT_POSITIVE_PRESETS
       );
       setNegativePresetGroup(
         remoteNegativePresets ?? storedNegativePresets ?? DEFAULT_NEGATIVE_PRESETS
       );
-      setGenerationSettings(
-        remoteGenerationSettings ??
-          fromPersistedGenerationSettings(storedGenerationSettings, DEFAULT_GENERATION_SETTINGS)
-      );
+      try {
+        setGenerationSettings(
+          fromPersistedGenerationSettings(
+            remoteGenerationSettingsRaw ?? storedGenerationSettings,
+            DEFAULT_GENERATION_SETTINGS
+          )
+        );
+        setSettingsError(null);
+      } catch (error) {
+        setSettingsError(
+          error instanceof Error ? error.message : 'Could not load generation settings.'
+        );
+      }
       setHasHydratedSettings(true);
     })();
   }, []);
@@ -94,12 +103,12 @@ export function useProjectSettings() {
   }, [hasHydratedSettings, negativePresetGroup]);
 
   useEffect(() => {
-    if (!hasHydratedSettings) {
+    if (!hasHydratedSettings || settingsError) {
       return;
     }
 
     localStorage.setItem(STORAGE_KEYS.generationSettings, JSON.stringify(generationSettings));
-  }, [hasHydratedSettings, generationSettings]);
+  }, [hasHydratedSettings, generationSettings, settingsError]);
 
   useEffect(() => {
     if (document.documentElement.dataset.theme !== generationSettings.theme) {
@@ -115,5 +124,6 @@ export function useProjectSettings() {
     generationSettings,
     setGenerationSettings,
     hasHydratedSettings,
+    settingsError,
   };
 }

@@ -1,8 +1,29 @@
 {
+  "schemaVersion": 2,
   "connection": {
-    "apiUrl": "http://127.0.0.1:7860",
-    "model": "",
-    "seed": -1
+    "provider": "automatic1111",
+    "profiles": {
+      "automatic1111": {
+        "apiUrl": "http://127.0.0.1:7860",
+        "model": "",
+        "seed": -1,
+        "steps": 30,
+        "width": 1024,
+        "height": 1024,
+        "timeoutSeconds": 180,
+        "workflowId": "builtin-txt2img"
+      },
+      "comfyui": {
+        "apiUrl": "http://127.0.0.1:8188",
+        "model": "",
+        "seed": -1,
+        "steps": 30,
+        "width": 1024,
+        "height": 1024,
+        "timeoutSeconds": 900,
+        "workflowId": "builtin-txt2img"
+      }
+    }
   },
   "generic": {
     "theme": "light"

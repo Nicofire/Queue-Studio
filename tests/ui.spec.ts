@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { Buffer } from 'node:buffer';
+import { readWorkflow } from '../dev-server/comfyui-workflows';
 import type { CategoryDefinition } from '../src/features/categories/categoryTypes';
+import { parseWorkflowPreset } from '../src/features/generation/comfyWorkflow';
 import type { GenerationStatusResponse } from '../src/features/generation/generationApi';
 
 const PREVIEW =
@@ -18,6 +20,7 @@ const entry = (name: string, favorite = false) => ({
 });
 
 test.beforeEach(async ({ page }) => {
+  let workflows = [await readWorkflow(process.cwd(), 'builtin-txt2img')];
   const categories: CategoryDefinition[] = [
     {
       id: 'characters',
@@ -53,12 +56,31 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    const body = request.method() === 'POST' ? request.postDataJSON() : {};
+    const body = ['POST', 'PUT'].includes(request.method()) ? request.postDataJSON() : {};
     let response: unknown;
     if (path === '/api/categories') response = { categories };
     else if (path === '/api/automatic1111/models')
       response = [{ title: 'studio.safetensors', model_name: 'studio' }];
-    else if (path === '/api/config/settings') {
+    else if (path === '/api/generation/models')
+      response = [{ id: 'studio.safetensors', label: 'studio.safetensors' }];
+    else if (path === '/api/generation/connection/test')
+      response = {
+        ok: true,
+        models: [{ id: 'studio.safetensors', label: 'studio.safetensors' }],
+      };
+    else if (path.startsWith('/api/generation/workflows')) {
+      const id = path.split('/')[4];
+      if (request.method() === 'GET')
+        response = id ? workflows.find((workflow) => workflow.id === id) : workflows;
+      else if (request.method() === 'DELETE') {
+        workflows = workflows.filter((workflow) => workflow.id !== id);
+        response = { ok: true };
+      } else {
+        const preset = parseWorkflowPreset(body, id ?? '11111111-1111-4111-8111-111111111111');
+        workflows = [...workflows.filter((workflow) => workflow.id !== preset.id), preset];
+        response = preset;
+      }
+    } else if (path === '/api/config/settings') {
       if (request.method() === 'POST') settings = body;
       response = request.method() === 'POST' ? { ok: true } : settings;
     } else if (path.startsWith('/api/config/'))
@@ -466,7 +488,8 @@ test('settings saves preserve independent persisted sections', async ({ page }) 
   );
   await page.getByRole('button', { name: 'Save connection settings', exact: true }).click();
   expect((await saved).postDataJSON()).toMatchObject({
-    connection: { steps: 42 },
+    schemaVersion: 2,
+    connection: { provider: 'automatic1111', profiles: { automatic1111: { steps: 42 } } },
     generic: { theme: 'light' },
   });
   await expect(page.getByText('Connection and generation settings saved.')).toBeVisible();
@@ -478,9 +501,136 @@ test('settings saves preserve independent persisted sections', async ({ page }) 
   );
   await page.getByRole('button', { name: 'Save appearance', exact: true }).click();
   expect((await appearance).postDataJSON()).toMatchObject({
-    connection: { steps: 42 },
+    schemaVersion: 2,
+    connection: { provider: 'automatic1111', profiles: { automatic1111: { steps: 42 } } },
     generic: { theme: 'dark' },
   });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+
+test('ComfyUI profiles and imported workflow bindings survive switching and reload', async ({
+  page,
+}, testInfo) => {
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('comfyui');
+  await expect(page.getByRole('textbox', { name: /API URL/ })).toHaveValue('http://127.0.0.1:8188');
+  await page.getByRole('spinbutton', { name: 'Steps', exact: true }).fill('55');
+  await page.getByRole('button', { name: 'Test connection', exact: true }).click();
+  await expect(page.getByText('Connection OK - 1 models found.')).toBeVisible();
+  await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('automatic1111');
+  await expect(page.getByRole('spinbutton', { name: 'Steps', exact: true })).toHaveValue('30');
+  await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('comfyui');
+  await expect(page.getByRole('spinbutton', { name: 'Steps', exact: true })).toHaveValue('55');
+  const preset = await readWorkflow(process.cwd(), 'builtin-txt2img');
+  await page.locator('input[type="file"][accept*="json"]').setInputFiles({
+    name: 'single-workflow.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(preset.graph)),
+  });
+  const editor = page.getByRole('dialog', { name: 'Import API workflow', exact: true });
+  await expect(editor).toBeVisible();
+  await editor.getByRole('textbox', { name: 'Workflow name', exact: true }).fill('Custom single');
+  await expect(editor.getByRole('listbox', { name: 'Positive prompt', exact: true })).toHaveValues([
+    '6:text',
+  ]);
+  await editor.getByRole('listbox', { name: 'Batch size', exact: true }).selectOption([]);
+  await editor.getByRole('listbox', { name: 'Width', exact: true }).selectOption([]);
+  await page.screenshot({
+    path: testInfo.outputPath('workflow-desktop-light.png'),
+    animations: 'disabled',
+  });
+  await page.setViewportSize({ width: 375, height: 812 });
+  const bounds = await editor.boundingBox();
+  const saveBounds = await editor
+    .getByRole('button', { name: 'Save workflow', exact: true })
+    .boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
+  expect(saveBounds!.y + saveBounds!.height).toBeLessThanOrEqual(812);
+  await page.screenshot({
+    path: testInfo.outputPath('workflow-mobile-light.png'),
+    animations: 'disabled',
+  });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'dark';
+  });
+  await page.screenshot({
+    path: testInfo.outputPath('workflow-mobile-dark.png'),
+    animations: 'disabled',
+  });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light';
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await editor.getByRole('button', { name: 'Save workflow', exact: true }).click();
+  await expect(editor).not.toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Workflow', exact: true })).toHaveValue(
+    '11111111-1111-4111-8111-111111111111'
+  );
+  await expect(page.getByRole('spinbutton', { name: 'Width', exact: true })).toBeDisabled();
+  const saved = page.waitForRequest(
+    (request) => request.method() === 'POST' && request.url().endsWith('/api/config/settings')
+  );
+  await page.getByRole('button', { name: 'Save connection settings', exact: true }).click();
+  expect((await saved).postDataJSON()).toMatchObject({
+    schemaVersion: 2,
+    connection: {
+      provider: 'comfyui',
+      profiles: {
+        automatic1111: { steps: 30, apiUrl: 'http://127.0.0.1:7860' },
+        comfyui: {
+          steps: 55,
+          apiUrl: 'http://127.0.0.1:8188',
+          workflowId: '11111111-1111-4111-8111-111111111111',
+        },
+      },
+    },
+  });
+  await expect(page.getByText('Connection and generation settings saved.')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Provider', exact: true })).toHaveValue(
+    'comfyui'
+  );
+  await expect(page.getByRole('combobox', { name: 'Workflow', exact: true })).toHaveValue(
+    '11111111-1111-4111-8111-111111111111'
+  );
+  await page.getByRole('button', { name: 'Library', exact: true }).click();
+  await page.getByRole('button', { name: 'Add entry to Characters', exact: true }).click();
+  await page.locator('#entry-positive-input').fill('A single portrait');
+  await expect(page.getByRole('button', { name: '2x2', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '3x3', exact: true })).toBeDisabled();
+  const preview = page.waitForRequest((request) =>
+    request.url().endsWith('/api/generation/preview')
+  );
+  await page.getByRole('button', { name: 'Generate 1', exact: true }).click();
+  expect((await preview).postDataJSON()).toMatchObject({
+    batchSize: 1,
+    expectedConnection: { provider: 'comfyui' },
+  });
+  await expect(page.locator('.entry-generated-tile')).toHaveCount(1);
+  await expect(page.locator('.entry-generated-grid')).toHaveClass(/entry-generated-grid-1/);
+});
+
+test('missing remote settings preserve the valid local settings source before migration', async ({
+  page,
+}) => {
+  await page.route('**/api/config/settings', (route) => route.fulfill({ status: 404, json: {} }));
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'queue-manager.generation-settings',
+      JSON.stringify({
+        apiUrl: 'http://127.0.0.1:9999',
+        model: 'offline-model',
+        steps: 61,
+        theme: 'dark',
+      })
+    );
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: /API URL/ })).toHaveValue('http://127.0.0.1:9999');
+  await expect(page.getByRole('spinbutton', { name: 'Steps', exact: true })).toHaveValue('61');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 
@@ -542,7 +692,7 @@ test('command errors survive a successful status poll', async ({ page }) => {
 });
 
 test('model endpoint failure leaves an editable fallback', async ({ page }) => {
-  await page.route('**/api/automatic1111/models?*', (route) =>
+  await page.route('**/api/generation/models?*', (route) =>
     route.fulfill({ status: 503, json: { message: 'Offline' } })
   );
   await page
@@ -590,7 +740,10 @@ test('queue state screenshots include running, paused, completed, aborted and er
   snapshot.lastError = 'Automatic1111 is unavailable';
   await page.clock.fastForward(1600);
   await expect(page.getByRole('alert')).toHaveText('Automatic1111 is unavailable');
-  await page.screenshot({ path: testInfo.outputPath('queue-error.png'), animations: 'disabled' });
+  await page.screenshot({
+    path: testInfo.outputPath('queue-error.png'),
+    animations: 'disabled',
+  });
 });
 
 test('icon tooltips work with keyboard focus, including inside dialogs', async ({ page }) => {

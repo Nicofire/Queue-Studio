@@ -1,3 +1,4 @@
+import type { PersistedGenerationSettings, ProviderId } from '../settings/generationSettings';
 import type { GenerationStatisticsSnapshot } from './generationStatistics';
 
 export type GenerationStatus = 'idle' | 'running' | 'paused' | 'aborted' | 'completed';
@@ -17,6 +18,9 @@ export type GenerationQueueItemPreview = {
 };
 
 export type GenerationStatusResponse = {
+  provider?: ProviderId | null;
+  isBusy?: boolean;
+  operation?: 'queue' | 'preview' | 'configuration' | null;
   status: GenerationStatus;
   queueLength: number;
   queuePreview: GenerationQueueItemPreview[];
@@ -37,6 +41,7 @@ const GENERATION_OPEN_OUTPUT_PATH = '/api/generation/output/open-today';
 const GENERATION_PREVIEW_PATH = '/api/generation/preview';
 
 export type GenerationPreviewRequest = {
+  expectedConnection?: PersistedGenerationSettings['connection'];
   positive_prompt: string;
   negative_prompt: string;
   loras: string;
@@ -102,8 +107,10 @@ export async function clearGenerationQueue(): Promise<GenerationStatusResponse> 
   return await postJson(GENERATION_QUEUE_CLEAR_PATH, {});
 }
 
-export async function startGeneration(): Promise<GenerationStatusResponse> {
-  return await postJson(GENERATION_START_PATH, {});
+export async function startGeneration(
+  expectedConnection?: PersistedGenerationSettings['connection']
+): Promise<GenerationStatusResponse> {
+  return await postJson(GENERATION_START_PATH, { expectedConnection });
 }
 
 export async function pauseGeneration(): Promise<GenerationStatusResponse> {

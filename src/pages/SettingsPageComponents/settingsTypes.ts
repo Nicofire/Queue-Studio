@@ -3,32 +3,13 @@ export type PromptPresetGroup = {
   presets: Record<string, string>;
 };
 
-export type GenerationSettings = {
-  apiUrl: string;
-  model: string;
-  seed: number;
-  steps: number;
-  width: number;
-  height: number;
-  theme: 'light' | 'dark';
-};
-
-export type ConnectionSettings = {
-  apiUrl: string;
-  model: string;
-  seed: number;
-  steps: number;
-  width: number;
-  height: number;
-};
+export type {
+  GenerationSettings,
+  PersistedGenerationSettings,
+} from '../../features/settings/generationSettings';
 
 export type GenericSettings = {
   theme: 'light' | 'dark';
-};
-
-export type PersistedGenerationSettings = {
-  connection: ConnectionSettings;
-  generic: GenericSettings;
 };
 
 export type SaveStatusHandlers = {

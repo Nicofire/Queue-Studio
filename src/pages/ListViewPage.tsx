@@ -17,6 +17,7 @@ import type {
 } from '../features/categories/categoryTypes';
 import { useCategoryEntryActions } from '../features/categories/useCategoryEntryActions';
 import { toggleSelectAllInCategory } from '../features/categories/useCategorySelection';
+import type { GenerationSettings } from '../features/settings/generationSettings';
 
 type ListViewPageProps = {
   categories: CategoryDefinition[];
@@ -24,7 +25,8 @@ type ListViewPageProps = {
   selectionByCategory: CategorySelectionMap;
   setSelectionByCategory: Dispatch<SetStateAction<CategorySelectionMap>>;
   toggleTemplate: (categoryId: string, templateId: string) => void;
-  automaticApiUrl: string;
+  generationSettings: GenerationSettings;
+  generationBusy: boolean;
 };
 
 export function ListViewPage({
@@ -33,7 +35,8 @@ export function ListViewPage({
   selectionByCategory,
   setSelectionByCategory,
   toggleTemplate,
-  automaticApiUrl,
+  generationSettings,
+  generationBusy,
 }: ListViewPageProps) {
   const [favoriteOnlyByCategory, setFavoriteOnlyByCategory] = useState<Record<string, boolean>>({});
   const [entrySearch, setEntrySearch] = useState('');
@@ -441,7 +444,8 @@ export function ListViewPage({
           mode={entryModalTemplateId ? 'edit' : 'create'}
           categoryTitle={entryModalCategory.title}
           entry={entryModalTemplate}
-          automaticApiUrl={automaticApiUrl}
+          generationSettings={generationSettings}
+          generationBusy={generationBusy}
           errorMessage={entryModalError}
           isSaving={isSavingEntry}
           isDeleting={isDeletingEntry}

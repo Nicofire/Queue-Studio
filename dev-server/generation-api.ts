@@ -12,6 +12,23 @@ import {
   resolveSelectedPresetText,
   type PromptPresetSource,
 } from '../src/features/generation/promptComposition.ts';
+import {
+  getActiveConnection,
+  validateApiUrl,
+  type ProviderId,
+} from '../src/features/settings/generationSettings.ts';
+import {
+  beginOperation,
+  finishOperation,
+  getActiveOperation,
+  type GenerationOperation,
+} from './generation-operations.ts';
+import { getGenerationProvider } from './generation-providers.ts';
+import {
+  assertSavedConnection,
+  readGenerationSettings,
+  SavedConnectionMismatchError,
+} from './generation-settings.ts';
 import { pathExists, readRequestBody, RequestBodyTooLargeError, sendJson } from './http-utils.ts';
 
 export const GENERATION_STATUS_PATH = '/api/generation/status';
@@ -24,7 +41,6 @@ export const GENERATION_OPEN_OUTPUT_PATH = '/api/generation/output/open-today';
 export const GENERATION_PREVIEW_PATH = '/api/generation/preview';
 
 const MAX_JSON_BODY_BYTES = 1_500_000;
-const JOB_TIMEOUT_MS = 180_000;
 
 type GenerationStatus = 'idle' | 'running' | 'paused' | 'aborted' | 'completed';
 
@@ -43,6 +59,9 @@ type QueueItemPreview = {
 };
 
 type StatusPayload = {
+  provider: ProviderId | null;
+  isBusy: boolean;
+  operation: GenerationOperation['kind'] | null;
   status: GenerationStatus;
   queueLength: number;
   queuePreview: QueueItemPreview[];
@@ -53,19 +72,6 @@ type StatusPayload = {
   statistics: GenerationStatisticsSnapshot;
 };
 
-type NormalizedSettings = {
-  apiUrl: string;
-  model: string;
-  seed: number;
-  steps: number;
-  width: number;
-  height: number;
-};
-
-type Txt2ImgResponse = {
-  images?: unknown;
-};
-
 let queueItems: QueueItem[] = [];
 let queueStatus: GenerationStatus = 'idle';
 let activeJobLabel: string | null = null;
@@ -74,12 +80,7 @@ let runCompleted = 0;
 let lastError: string | null = null;
 let workerPromise: Promise<void> | null = null;
 let wakeWorker: (() => void) | null = null;
-let activeRequestController: AbortController | null = null;
 const generationStatistics = new GenerationStatistics();
-
-function normalizeApiUrl(apiUrl: string) {
-  return apiUrl.trim().replace(/\/+$/, '');
-}
 
 function toLocalDateFolderName(date: Date) {
   const year = date.getFullYear();
@@ -130,7 +131,13 @@ function decodeBase64Image(rawImage: string) {
   };
 }
 
-async function saveGeneratedImages(projectRoot: string, item: QueueItem, images: string[]) {
+async function saveGeneratedImages(
+  projectRoot: string,
+  item: QueueItem,
+  images: string[],
+  signal: AbortSignal
+) {
+  signal.throwIfAborted();
   const outputDateDir = path.resolve(projectRoot, 'output', toLocalDateFolderName(new Date()));
   await mkdir(outputDateDir, { recursive: true });
 
@@ -139,6 +146,7 @@ async function saveGeneratedImages(projectRoot: string, item: QueueItem, images:
 
   await Promise.all(
     images.map(async (rawImage, index) => {
+      signal.throwIfAborted();
       const { buffer, extension } = decodeBase64Image(rawImage);
       const fileName = `${safeIdPart}-${timestampPart}-${String(index + 1).padStart(2, '0')}${extension}`;
       const targetPath = path.resolve(outputDateDir, fileName);
@@ -168,7 +176,11 @@ async function openFolderInFileExplorer(folderPath: string) {
 }
 
 function buildStatusPayload(): StatusPayload {
+  const operation = getActiveOperation();
   return {
+    provider: operation?.settings?.provider ?? null,
+    isBusy: operation !== null,
+    operation: operation?.kind ?? null,
     status: queueStatus,
     queueLength: queueItems.length,
     queuePreview: queueItems.map((item) => ({ id: item.id, summary: item.summary })),
@@ -188,83 +200,6 @@ function wakePausedWorker() {
   const resolver = wakeWorker;
   wakeWorker = null;
   resolver();
-}
-
-async function loadGenerationSettings(projectRoot: string): Promise<NormalizedSettings> {
-  const dataSettingsPath = path.resolve(projectRoot, 'data', 'settings.json');
-  const publicSettingsPath = path.resolve(projectRoot, 'public', 'settings.json');
-
-  const settingsPath = (await pathExists(dataSettingsPath)) ? dataSettingsPath : publicSettingsPath;
-  const settingsContent = await readFile(settingsPath, 'utf8');
-  const parsed = JSON.parse(settingsContent.replace(/^\uFEFF/, '')) as
-    | {
-        connection?: {
-          apiUrl?: unknown;
-          model?: unknown;
-          seed?: unknown;
-          steps?: unknown;
-          width?: unknown;
-          height?: unknown;
-        };
-        apiUrl?: unknown;
-        model?: unknown;
-        seed?: unknown;
-        steps?: unknown;
-        width?: unknown;
-        height?: unknown;
-      }
-    | undefined;
-
-  const apiUrlRaw =
-    typeof parsed?.connection?.apiUrl === 'string'
-      ? parsed.connection.apiUrl
-      : typeof parsed?.apiUrl === 'string'
-        ? parsed.apiUrl
-        : '';
-  const modelRaw =
-    typeof parsed?.connection?.model === 'string'
-      ? parsed.connection.model
-      : typeof parsed?.model === 'string'
-        ? parsed.model
-        : '';
-  const seedRaw =
-    typeof parsed?.connection?.seed === 'number'
-      ? parsed.connection.seed
-      : typeof parsed?.seed === 'number'
-        ? parsed.seed
-        : -1;
-  const stepsRaw =
-    typeof parsed?.connection?.steps === 'number'
-      ? parsed.connection.steps
-      : typeof parsed?.steps === 'number'
-        ? parsed.steps
-        : 30;
-  const widthRaw =
-    typeof parsed?.connection?.width === 'number'
-      ? parsed.connection.width
-      : typeof parsed?.width === 'number'
-        ? parsed.width
-        : 1024;
-  const heightRaw =
-    typeof parsed?.connection?.height === 'number'
-      ? parsed.connection.height
-      : typeof parsed?.height === 'number'
-        ? parsed.height
-        : 1024;
-
-  const apiUrl = normalizeApiUrl(apiUrlRaw);
-  if (!apiUrl) {
-    throw new Error('Automatic1111 API URL is not configured in settings.json.');
-  }
-
-  return {
-    apiUrl,
-    model: modelRaw.trim(),
-    seed: Number.isFinite(seedRaw) ? seedRaw : -1,
-    steps: Number.isFinite(stepsRaw) ? Math.max(1, Math.round(stepsRaw)) : 30,
-    width: Number.isFinite(widthRaw) ? Math.max(64, Math.round(widthRaw / 64) * 64) : 1024,
-    height: Number.isFinite(heightRaw) ? Math.max(64, Math.round(heightRaw / 64) * 64) : 1024,
-  };
 }
 
 /** Reads a preset file, preferring `data/` over the `public/` fallback copy. */
@@ -293,92 +228,40 @@ async function loadGlobalPromptDefaults(projectRoot: string) {
   };
 }
 
-async function runTxt2ImgJob(projectRoot: string, item: QueueItem) {
-  const settings = await loadGenerationSettings(projectRoot);
-  const images = await requestTxt2Img(settings, item);
-  await saveGeneratedImages(projectRoot, item, images);
+async function runTxt2ImgJob(projectRoot: string, item: QueueItem, operation: GenerationOperation) {
+  const images = await requestGeneration(operation, item);
+  operation.controller.signal.throwIfAborted();
+  await saveGeneratedImages(projectRoot, item, images, operation.controller.signal);
+  operation.controller.signal.throwIfAborted();
   return images.length;
 }
 
 /** Preview grid sizes the entry editor is allowed to request in a single batched call. */
 const ALLOWED_PREVIEW_BATCH_SIZES = [1, 4, 9];
 
-/** Issues the txt2img call and returns the raw base64 images. `batchSize` requests them in one batched call. */
-async function requestTxt2Img(settings: NormalizedSettings, item: QueueItem, batchSize = 1) {
-  const modelOverride = item.model?.trim() || settings.model;
-  const seed =
-    typeof item.seed === 'number' && Number.isFinite(item.seed) ? item.seed : settings.seed;
-
-  const payload = {
-    prompt: item.prompt,
-    negative_prompt: item.negativePrompt,
-    seed,
-    steps: settings.steps,
-    width: settings.width,
-    height: settings.height,
-    batch_size: batchSize,
-    ...(modelOverride
-      ? {
-          override_settings: {
-            sd_model_checkpoint: modelOverride,
-          },
-        }
-      : {}),
-  };
-
-  const controller = new AbortController();
-  activeRequestController = controller;
-  const timeoutId = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(`${settings.apiUrl}/sdapi/v1/txt2img`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      let message = `Automatic1111 txt2img failed with status ${response.status}.`;
-      try {
-        const body = (await response.json()) as { message?: string; detail?: string };
-        const remoteMessage =
-          typeof body.message === 'string'
-            ? body.message
-            : typeof body.detail === 'string'
-              ? body.detail
-              : '';
-        if (remoteMessage) {
-          message = remoteMessage;
-        }
-      } catch {
-        // Keep fallback message.
-      }
-
-      throw new Error(message);
-    }
-
-    const body = (await response.json()) as Txt2ImgResponse;
-    const images = Array.isArray(body.images)
-      ? body.images.filter(
-          (image): image is string => typeof image === 'string' && image.trim().length > 0
-        )
-      : [];
-
-    if (images.length === 0) {
-      throw new Error('Automatic1111 response did not contain generated images.');
-    }
-
-    return images;
-  } finally {
-    clearTimeout(timeoutId);
-    activeRequestController = null;
-  }
+async function requestGeneration(operation: GenerationOperation, item: QueueItem, batchSize = 1) {
+  operation.cancellationMessage = undefined;
+  const settings = operation.settings!;
+  const signal = AbortSignal.any([
+    operation.controller.signal,
+    AbortSignal.timeout(settings.timeoutSeconds * 1000),
+  ]);
+  const provider = getGenerationProvider(settings.provider);
+  const images = await provider.generate(settings, item, batchSize, signal, {
+    ...operation.context,
+    onCancellation: (message) => {
+      operation.cancellationMessage = message;
+    },
+  });
+  signal.throwIfAborted();
+  return provider.id === 'automatic1111' &&
+    operation.kind === 'preview' &&
+    images.length > batchSize
+    ? images.slice(-batchSize)
+    : images;
 }
 
-async function processQueue(projectRoot: string) {
+async function processQueue(projectRoot: string, operation: GenerationOperation) {
   if (workerPromise) {
     return workerPromise;
   }
@@ -411,19 +294,26 @@ async function processQueue(projectRoot: string) {
       generationStatistics.startJob();
 
       try {
-        const imageCount = await runTxt2ImgJob(projectRoot, nextItem);
+        const imageCount = await runTxt2ImgJob(projectRoot, nextItem, operation);
         generationStatistics.finishJob(imageCount);
       } catch (error) {
         generationStatistics.cancelJob();
-        lastError = error instanceof Error ? error.message : 'Could not run generation job.';
+        if (!operation.controller.signal.aborted) {
+          lastError =
+            operation.cancellationMessage ??
+            (error instanceof Error ? error.message : 'Could not run generation job.');
+        }
       } finally {
-        runCompleted += 1;
+        if (!operation.controller.signal.aborted) runCompleted += 1;
       }
     }
 
     activeJobLabel = null;
   })().finally(() => {
     workerPromise = null;
+    if (operation.controller.signal.aborted && operation.cancellationMessage)
+      lastError = operation.cancellationMessage;
+    finishOperation(operation);
   });
 
   return workerPromise;
@@ -509,7 +399,7 @@ async function handleQueueAdd(req: IncomingMessage, res: ServerResponse) {
     return true;
   }
 
-  if (queueStatus === 'running' || queueStatus === 'paused') {
+  if (getActiveOperation()) {
     sendJson(res, 409, { message: 'Cannot add queue items while generation is active.' });
     return true;
   }
@@ -517,6 +407,11 @@ async function handleQueueAdd(req: IncomingMessage, res: ServerResponse) {
   try {
     const payload = await readRequestBody(req, { maxBytes: MAX_JSON_BODY_BYTES });
     const items = parseQueueItems(payload);
+
+    if (getActiveOperation()) {
+      sendJson(res, 409, { message: 'Cannot add queue items while generation is active.' });
+      return true;
+    }
 
     queueItems = [...queueItems, ...items];
     queueStatus = 'idle';
@@ -548,7 +443,7 @@ async function handleQueueClear(req: IncomingMessage, res: ServerResponse) {
     return true;
   }
 
-  if (queueStatus === 'running' || queueStatus === 'paused') {
+  if (getActiveOperation()) {
     sendJson(res, 409, { message: 'Cannot clear queue while generation is active.' });
     return true;
   }
@@ -590,14 +485,42 @@ async function handleStart(req: IncomingMessage, res: ServerResponse, projectRoo
     return true;
   }
 
-  queueStatus = 'running';
-  runTotal = queueItems.length;
-  runCompleted = 0;
-  lastError = null;
-  generationStatistics.reset();
-  void processQueue(projectRoot);
-
-  sendJson(res, 200, buildStatusPayload());
+  if (getActiveOperation()) {
+    sendJson(res, 409, { message: 'Another generation or configuration operation is active.' });
+    return true;
+  }
+  const operation = beginOperation('queue');
+  try {
+    const payload = await readRequestBody(req, { maxBytes: MAX_JSON_BODY_BYTES });
+    const settings = await readGenerationSettings(projectRoot);
+    assertSavedConnection(payload, settings);
+    operation.settings = getActiveConnection(settings);
+    operation.settings.apiUrl = validateApiUrl(operation.settings.apiUrl);
+    const provider = getGenerationProvider(settings.provider);
+    operation.context = await provider.prepare?.(
+      operation.settings,
+      projectRoot,
+      queueItems,
+      1,
+      AbortSignal.any([
+        operation.controller.signal,
+        AbortSignal.timeout(operation.settings.timeoutSeconds * 1000),
+      ])
+    );
+    operation.controller.signal.throwIfAborted();
+    queueStatus = 'running';
+    runTotal = queueItems.length;
+    runCompleted = 0;
+    lastError = null;
+    generationStatistics.reset();
+    void processQueue(projectRoot, operation);
+    sendJson(res, 200, buildStatusPayload());
+  } catch (error) {
+    finishOperation(operation);
+    sendJson(res, error instanceof SavedConnectionMismatchError ? 409 : 400, {
+      message: error instanceof Error ? error.message : 'Generation preflight failed.',
+    });
+  }
   return true;
 }
 
@@ -627,22 +550,25 @@ async function handleAbort(req: IncomingMessage, res: ServerResponse) {
     return true;
   }
 
-  if (queueStatus !== 'running' && queueStatus !== 'paused') {
+  const operation = getActiveOperation();
+  if (!operation || operation.kind === 'configuration') {
     sendJson(res, 409, { message: 'Generation is not active.' });
     return true;
   }
 
-  queueStatus = 'aborted';
-  queueItems = [];
-  activeJobLabel = null;
-  runTotal = 0;
-  runCompleted = 0;
-  lastError = 'Aborted by user.';
-  generationStatistics.cancelJob();
-
-  activeRequestController?.abort();
-  activeRequestController = null;
+  if (operation.kind === 'queue') {
+    queueStatus = 'aborted';
+    queueItems = [];
+    activeJobLabel = null;
+    runTotal = 0;
+    runCompleted = 0;
+    lastError = 'Aborted by user.';
+    generationStatistics.cancelJob();
+  }
+  operation.controller.abort();
   wakePausedWorker();
+  await operation.done;
+  if (operation.cancellationMessage) lastError = operation.cancellationMessage;
 
   sendJson(res, 200, buildStatusPayload());
   return true;
@@ -680,16 +606,16 @@ async function handlePreview(req: IncomingMessage, res: ServerResponse, projectR
     return true;
   }
 
-  if (queueStatus === 'running' || queueStatus === 'paused') {
-    sendJson(res, 409, { message: 'Cannot generate a preview while the queue is active.' });
-    return true;
-  }
-
-  if (activeRequestController) {
+  if (getActiveOperation()) {
     sendJson(res, 409, { message: 'Another generation request is already running.' });
     return true;
   }
 
+  const operation = beginOperation('preview');
+  const onClose = () => {
+    if (!res.writableEnded) operation.controller.abort();
+  };
+  res.once('close', onClose);
   try {
     const payload = (await readRequestBody(req, { maxBytes: MAX_JSON_BODY_BYTES })) as {
       positive_prompt?: unknown;
@@ -726,37 +652,43 @@ async function handlePreview(req: IncomingMessage, res: ServerResponse, projectR
         ? payload.batchSize
         : 1;
 
-    const settings = await loadGenerationSettings(projectRoot);
-    const images = await requestTxt2Img(
+    const savedSettings = await readGenerationSettings(projectRoot);
+    assertSavedConnection(payload, savedSettings);
+    const settings = getActiveConnection(savedSettings);
+    settings.apiUrl = validateApiUrl(settings.apiUrl);
+    operation.settings = settings;
+    const item = {
+      id: 'preview',
+      summary: 'Entry preview',
+      prompt: composed.prompt,
+      negativePrompt: composed.negativePrompt,
+      ...(composed.model ? { model: composed.model } : {}),
+      ...(typeof payload.seed === 'number' && Number.isFinite(payload.seed)
+        ? { seed: payload.seed }
+        : {}),
+    };
+    const provider = getGenerationProvider(settings.provider);
+    operation.context = await provider.prepare?.(
       settings,
-      {
-        id: 'preview',
-        summary: 'Entry preview',
-        prompt: composed.prompt,
-        negativePrompt: composed.negativePrompt,
-        ...(composed.model ? { model: composed.model } : {}),
-        ...(typeof payload.seed === 'number' && Number.isFinite(payload.seed)
-          ? { seed: payload.seed }
-          : {}),
-      },
-      batchSize
-    ).catch((error: unknown) => {
+      projectRoot,
+      [item],
+      batchSize,
+      AbortSignal.any([
+        operation.controller.signal,
+        AbortSignal.timeout(settings.timeoutSeconds * 1000),
+      ])
+    );
+    const images = await requestGeneration(operation, item, batchSize).catch((error: unknown) => {
       const reason = error instanceof Error ? error.message : 'unknown error';
       throw new Error(
         reason === 'fetch failed'
-          ? `Could not reach Automatic1111 at ${settings.apiUrl}. Is it running with --api?`
+          ? `Could not reach ${settings.provider} at ${settings.apiUrl}. Check the saved connection.`
           : reason
       );
     });
 
-    // A1111 prepends an extra grid image when batching; keep only the individual generations.
-    const individualImages =
-      images.length > batchSize ? images.slice(images.length - batchSize) : images;
-
     sendJson(res, 200, {
-      images: individualImages.map((image) =>
-        image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '')
-      ),
+      images: images.map((image) => image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '')),
       prompt: composed.prompt,
       negativePrompt: composed.negativePrompt,
     });
@@ -766,9 +698,14 @@ async function handlePreview(req: IncomingMessage, res: ServerResponse, projectR
       return true;
     }
 
-    sendJson(res, 502, {
+    sendJson(res, error instanceof SavedConnectionMismatchError ? 409 : 502, {
       message: error instanceof Error ? error.message : 'Could not generate preview image.',
     });
+  } finally {
+    res.removeListener('close', onClose);
+    if (operation.controller.signal.aborted && operation.cancellationMessage)
+      lastError = operation.cancellationMessage;
+    finishOperation(operation);
   }
 
   return true;

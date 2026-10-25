@@ -27,6 +27,7 @@ output
 
 /public/static/*
 /data/categorys/*
+/data/comfyui-workflows/
 
 /test-results/
 /playwright-report/

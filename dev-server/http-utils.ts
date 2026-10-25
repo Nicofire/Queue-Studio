@@ -56,3 +56,27 @@ export function sendJson(res: ServerResponse, statusCode: number, payload: unkno
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(payload));
 }
+
+export async function readResponseBytes(response: Response, maximum: number) {
+  if (Number(response.headers.get('content-length')) > maximum) {
+    await response.body?.cancel();
+    throw new Error('API response exceeds the supported size.');
+  }
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  if (!response.body) throw new Error('API returned an empty response.');
+  const reader = response.body.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maximum) throw new Error('API response exceeds the supported size.');
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks);
+}

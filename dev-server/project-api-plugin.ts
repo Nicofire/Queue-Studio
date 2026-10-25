@@ -4,6 +4,7 @@ import { handleAutomatic1111Request } from './automatic1111-api.ts';
 import { handleCategorysRequest } from './categorys-api.ts';
 import { handleConfigFilesRequest } from './config-files-api.ts';
 import { handleGenerationRequest } from './generation-api.ts';
+import { handleGenerationConnectionsRequest } from './generation-connections-api.ts';
 
 export function createProjectApiPlugin(projectRoot: string): PluginOption {
   return {
@@ -12,6 +13,10 @@ export function createProjectApiPlugin(projectRoot: string): PluginOption {
       server.middlewares.use(async (req, res, next) => {
         const requestUrl = req.url ?? '';
         const parsedUrl = new URL(requestUrl, 'http://localhost');
+
+        if (await handleGenerationConnectionsRequest(req, res, parsedUrl, projectRoot)) {
+          return;
+        }
 
         if (await handleAutomatic1111Request(req, res, parsedUrl)) {
           return;

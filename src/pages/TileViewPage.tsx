@@ -12,6 +12,7 @@ import type {
 } from '../features/categories/categoryTypes';
 import { useCategoryEntryActions } from '../features/categories/useCategoryEntryActions';
 import { toggleSelectAllInCategory } from '../features/categories/useCategorySelection';
+import type { GenerationSettings } from '../features/settings/generationSettings';
 
 type TileViewPageProps = {
   categories: CategoryDefinition[];
@@ -19,7 +20,8 @@ type TileViewPageProps = {
   selectionByCategory: CategorySelectionMap;
   setSelectionByCategory: Dispatch<SetStateAction<CategorySelectionMap>>;
   toggleTemplate: (categoryId: string, templateId: string) => void;
-  automaticApiUrl: string;
+  generationSettings: GenerationSettings;
+  generationBusy: boolean;
 };
 
 const getDefaultActiveCategoryId = (categories: CategoryDefinition[]) => categories[0]?.id ?? '';
@@ -30,7 +32,8 @@ export function TileViewPage({
   selectionByCategory,
   setSelectionByCategory,
   toggleTemplate,
-  automaticApiUrl,
+  generationSettings,
+  generationBusy,
 }: TileViewPageProps) {
   const [activeCategoryId, setActiveCategoryId] = useState(() =>
     getDefaultActiveCategoryId(categories)
@@ -157,7 +160,8 @@ export function TileViewPage({
           mode={entryModalTemplateId ? 'edit' : 'create'}
           categoryTitle={entryModalCategory.title}
           entry={entryModalTemplate}
-          automaticApiUrl={automaticApiUrl}
+          generationSettings={generationSettings}
+          generationBusy={generationBusy}
           errorMessage={entryModalError}
           isSaving={isSavingEntry}
           isDeleting={isDeletingEntry}

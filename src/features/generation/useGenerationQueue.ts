@@ -7,6 +7,10 @@ import type {
 } from '../categories/categoryTypes';
 import { buildQueueCombinations, getQueueCombinationCount } from '../categories/queueBuilder';
 import {
+  toPersistedGenerationSettings,
+  type GenerationSettings,
+} from '../settings/generationSettings';
+import {
   abortGeneration,
   addQueueToGeneration,
   clearGenerationQueue,
@@ -21,6 +25,7 @@ import { EMPTY_GENERATION_STATISTICS } from './generationStatistics';
 import { composeGenerationPrompt } from './promptComposition';
 
 type Selection = {
+  generationSettings: GenerationSettings;
   categories: CategoryDefinition[];
   selectionByCategory: CategorySelectionMap;
   globalPositivePrompt: string;
@@ -120,7 +125,8 @@ export function useGenerationQueue(selection: Selection) {
     };
   }, []);
 
-  const isBusy = status.status === 'running' || status.status === 'paused';
+  const isBusy =
+    Boolean(status.isBusy) || status.status === 'running' || status.status === 'paused';
   const selectedCount = Object.values(selection.selectionByCategory).reduce(
     (sum, ids) => sum + ids.length,
     0
@@ -190,7 +196,8 @@ export function useGenerationQueue(selection: Selection) {
     addSelection,
     start: () =>
       runCommand(
-        startGeneration,
+        () =>
+          startGeneration(toPersistedGenerationSettings(selection.generationSettings).connection),
         status.status === 'paused' ? 'Generation resumed.' : 'Generation started.'
       ),
     pause: () => runCommand(pauseGeneration, 'Generation paused.'),

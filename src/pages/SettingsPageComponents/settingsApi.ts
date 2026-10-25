@@ -1,5 +1,9 @@
+import type { ProviderId } from '../../features/settings/generationSettings';
 import { MODEL_PROXY_PATH } from './settingsConfig';
-import type { GenerationSettings, PersistedGenerationSettings } from './settingsTypes';
+export {
+  normalizeGenerationSettings as fromPersistedGenerationSettings,
+  toPersistedGenerationSettings,
+} from '../../features/settings/generationSettings';
 
 export function readStoredJson<T>(key: string): T | undefined {
   const storedValue = localStorage.getItem(key);
@@ -79,80 +83,34 @@ export async function saveJsonToProject(path: string, payload: unknown): Promise
   });
 
   if (!response.ok) {
-    throw new Error(`Save failed with status ${response.status}`);
+    const body = (await response.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `Save failed with status ${response.status}`);
   }
 }
 
-export function toPersistedGenerationSettings(
-  settings: GenerationSettings
-): PersistedGenerationSettings {
-  return {
-    connection: {
-      apiUrl: settings.apiUrl,
-      model: settings.model,
-      seed: settings.seed,
-      steps: settings.steps,
-      width: settings.width,
-      height: settings.height,
-    },
-    generic: {
-      theme: settings.theme,
-    },
-  };
+export async function requestGenerationJson<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(path, options);
+  const body: unknown = await response.json();
+  if (!response.ok)
+    throw new Error(
+      (body as { message?: string }).message ?? `Request failed (${response.status}).`
+    );
+  return body as T;
 }
 
-export function fromPersistedGenerationSettings(
-  payload: unknown,
-  fallback: GenerationSettings
-): GenerationSettings {
-  const safe = payload as
-    | {
-        connection?: {
-          apiUrl?: unknown;
-          model?: unknown;
-          seed?: unknown;
-          steps?: unknown;
-          width?: unknown;
-          height?: unknown;
-        };
-        generic?: {
-          theme?: unknown;
-        };
-        apiUrl?: unknown;
-        model?: unknown;
-        seed?: unknown;
-        steps?: unknown;
-        width?: unknown;
-        height?: unknown;
-        theme?: unknown;
-      }
-    | undefined;
-
-  const hasSplitShape = Boolean(safe?.connection || safe?.generic);
-
-  if (hasSplitShape) {
-    const rawTheme = safe?.generic?.theme;
-    return {
-      apiUrl:
-        typeof safe?.connection?.apiUrl === 'string' ? safe.connection.apiUrl : fallback.apiUrl,
-      model: typeof safe?.connection?.model === 'string' ? safe.connection.model : fallback.model,
-      seed: typeof safe?.connection?.seed === 'number' ? safe.connection.seed : fallback.seed,
-      steps: typeof safe?.connection?.steps === 'number' ? safe.connection.steps : fallback.steps,
-      width: typeof safe?.connection?.width === 'number' ? safe.connection.width : fallback.width,
-      height:
-        typeof safe?.connection?.height === 'number' ? safe.connection.height : fallback.height,
-      theme: rawTheme === 'dark' || rawTheme === 'light' ? rawTheme : fallback.theme,
-    };
-  }
-
-  const rawTheme = safe?.theme;
-  return {
-    apiUrl: typeof safe?.apiUrl === 'string' ? safe.apiUrl : fallback.apiUrl,
-    model: typeof safe?.model === 'string' ? safe.model : fallback.model,
-    seed: typeof safe?.seed === 'number' ? safe.seed : fallback.seed,
-    steps: typeof safe?.steps === 'number' ? safe.steps : fallback.steps,
-    width: typeof safe?.width === 'number' ? safe.width : fallback.width,
-    height: typeof safe?.height === 'number' ? safe.height : fallback.height,
-    theme: rawTheme === 'dark' || rawTheme === 'light' ? rawTheme : fallback.theme,
-  };
+export function fetchGenerationModels(
+  provider: ProviderId,
+  apiUrl: string,
+  signal?: AbortSignal,
+  workflowId?: string
+) {
+  const query = new URLSearchParams({ provider, baseUrl: normalizeApiUrl(apiUrl) });
+  if (provider === 'comfyui' && workflowId) query.set('workflowId', workflowId);
+  return requestGenerationJson<Array<{ id: string; label: string }>>(
+    `/api/generation/models?${query}`,
+    { signal }
+  );
 }

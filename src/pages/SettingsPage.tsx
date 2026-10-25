@@ -1,12 +1,13 @@
 import { Cable, MessageSquareText, Palette } from 'lucide-react';
 import { useState, type Dispatch, type SetStateAction } from 'react';
 
-import { Automatic1111ConnectionSection } from './SettingsPageComponents/Automatic1111ConnectionSection';
 import { EffectivePromptSection } from './SettingsPageComponents/EffectivePromptSection';
+import { GenerationConnectionSection } from './SettingsPageComponents/GenerationConnectionSection';
 import { PromptPresetsSection } from './SettingsPageComponents/PromptPresetsSection';
 import type { GenerationSettings, PromptPresetGroup } from './SettingsPageComponents/settingsTypes';
 
 type SettingsPageProps = {
+  isBusy: boolean;
   positivePresetGroup: PromptPresetGroup;
   negativePresetGroup: PromptPresetGroup;
   setPositivePresetGroup: Dispatch<SetStateAction<PromptPresetGroup>>;
@@ -16,6 +17,7 @@ type SettingsPageProps = {
 };
 
 export function SettingsPage({
+  isBusy,
   positivePresetGroup,
   negativePresetGroup,
   setPositivePresetGroup,
@@ -73,7 +75,8 @@ export function SettingsPage({
         ) : null}
       </div>
       <div className="settings-content" hidden={section === 'presets'}>
-        <Automatic1111ConnectionSection
+        <GenerationConnectionSection
+          isBusy={isBusy}
           section={section === 'appearance' ? 'appearance' : 'connection'}
           generationSettings={generationSettings}
           setGenerationSettings={setGenerationSettings}

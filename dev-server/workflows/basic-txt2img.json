@@ -1,0 +1,40 @@
+{
+  "name": "Standard txt2img (SD 1.5 / SDXL)",
+  "graph": {
+    "3": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 1,
+        "steps": 30,
+        "cfg": 7,
+        "sampler_name": "euler",
+        "scheduler": "normal",
+        "denoise": 1,
+        "model": ["4", 0],
+        "positive": ["6", 0],
+        "negative": ["7", 0],
+        "latent_image": ["5", 0]
+      }
+    },
+    "4": { "class_type": "CheckpointLoaderSimple", "inputs": { "ckpt_name": "" } },
+    "5": {
+      "class_type": "EmptyLatentImage",
+      "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }
+    },
+    "6": { "class_type": "CLIPTextEncode", "inputs": { "text": "", "clip": ["4", 1] } },
+    "7": { "class_type": "CLIPTextEncode", "inputs": { "text": "", "clip": ["4", 1] } },
+    "8": { "class_type": "VAEDecode", "inputs": { "samples": ["3", 0], "vae": ["4", 2] } },
+    "9": { "class_type": "PreviewImage", "inputs": { "images": ["8", 0] } }
+  },
+  "bindings": {
+    "positivePrompt": [{ "nodeId": "6", "input": "text" }],
+    "negativePrompt": [{ "nodeId": "7", "input": "text" }],
+    "model": [{ "nodeId": "4", "input": "ckpt_name" }],
+    "seed": [{ "nodeId": "3", "input": "seed" }],
+    "steps": [{ "nodeId": "3", "input": "steps" }],
+    "width": [{ "nodeId": "5", "input": "width" }],
+    "height": [{ "nodeId": "5", "input": "height" }],
+    "batchSize": [{ "nodeId": "5", "input": "batch_size" }]
+  },
+  "outputNodeIds": ["9"]
+}

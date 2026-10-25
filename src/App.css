@@ -1,3 +1,35 @@
+.workflow-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.workflow-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.workflow-list li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workflow-bindings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
+}
+.workflow-bindings select {
+  max-width: 100%;
+}
+.workflow-modal .modal-header h2 {
+  font-size: 20px;
+}
+.entry-generated-grid.entry-generated-grid-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .app-shell {
   height: 100svh;
   display: grid;

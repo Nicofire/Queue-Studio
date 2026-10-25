@@ -1,8 +1,5 @@
-import type {
-  GenerationSettings,
-  PersistedGenerationSettings,
-  PromptPresetGroup,
-} from './settingsTypes';
+import type { PromptPresetGroup } from './settingsTypes';
+export { DEFAULT_GENERATION_SETTINGS } from '../../features/settings/generationSettings';
 
 export const STORAGE_KEYS = {
   positivePresets: 'queue-manager.positive-presets',
@@ -33,29 +30,5 @@ export const DEFAULT_NEGATIVE_PRESETS: PromptPresetGroup = {
     'Default Negative': 'low quality, blurry, noisy, watermark, text, cropped',
     Anime: 'bad anatomy, extra fingers, deformed hands, low detail',
     Photo: 'motion blur, overexposed, underexposed, bad framing',
-  },
-};
-
-export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
-  apiUrl: 'http://127.0.0.1:7860',
-  model: '',
-  seed: -1,
-  steps: 30,
-  width: 1024,
-  height: 1024,
-  theme: 'light',
-};
-
-export const DEFAULT_PERSISTED_GENERATION_SETTINGS: PersistedGenerationSettings = {
-  connection: {
-    apiUrl: DEFAULT_GENERATION_SETTINGS.apiUrl,
-    model: DEFAULT_GENERATION_SETTINGS.model,
-    seed: DEFAULT_GENERATION_SETTINGS.seed,
-    steps: DEFAULT_GENERATION_SETTINGS.steps,
-    width: DEFAULT_GENERATION_SETTINGS.width,
-    height: DEFAULT_GENERATION_SETTINGS.height,
-  },
-  generic: {
-    theme: DEFAULT_GENERATION_SETTINGS.theme,
   },
 };

@@ -40,8 +40,10 @@ function App() {
     setNegativePresetGroup,
     generationSettings,
     setGenerationSettings,
+    settingsError,
   } = useProjectSettings();
   const queue = useGenerationQueue({
+    generationSettings,
     categories,
     selectionByCategory,
     globalPositivePrompt: resolveSelectedPresetText(positivePresetGroup),
@@ -84,6 +86,11 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
+        {settingsError ? (
+          <p role="alert" className="field-hint is-error">
+            {settingsError}
+          </p>
+        ) : null}
         <div className="app-brand">
           <span className="brand-mark">
             <Layers size={22} />
@@ -214,7 +221,8 @@ function App() {
             selectionByCategory={selectionByCategory}
             setSelectionByCategory={setSelectionByCategory}
             toggleTemplate={toggleTemplate}
-            automaticApiUrl={generationSettings.apiUrl}
+            generationSettings={generationSettings}
+            generationBusy={queue.isBusy}
           />
         </div>
         <div
@@ -232,7 +240,8 @@ function App() {
             selectionByCategory={selectionByCategory}
             setSelectionByCategory={setSelectionByCategory}
             toggleTemplate={toggleTemplate}
-            automaticApiUrl={generationSettings.apiUrl}
+            generationSettings={generationSettings}
+            generationBusy={queue.isBusy}
           />
         </div>
         {activePage === 'Queue' ? (
@@ -246,6 +255,7 @@ function App() {
             setNegativePresetGroup={setNegativePresetGroup}
             generationSettings={generationSettings}
             setGenerationSettings={setGenerationSettings}
+            isBusy={queue.isBusy}
           />
         ) : null}
       </main>
