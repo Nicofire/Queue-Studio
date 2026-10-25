@@ -121,7 +121,7 @@ Playwright uses `http://127.0.0.1:5181` and starts a Vite server automatically, 
 
 The [GitHub Actions workflow](.github/workflows/ci.yml) runs on every push and pull request. It can also be started manually from **Actions > CI > Run workflow** once the workflow is on the default branch.
 
-Two jobs run independently on Ubuntu with Node.js 22 and cached npm downloads:
+Two jobs run independently on Ubuntu 24.04 with Node.js 22 and cached npm downloads. The Ubuntu version is pinned to avoid automatic operating-system migrations. Artifact uploads use `actions/upload-artifact@v7`, which runs on Node.js 24 independently of the application's Node.js version.
 
 | Job                       | Checks and artifacts                                                                                                                                                                                    |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
