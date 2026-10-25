@@ -117,6 +117,21 @@ The suite covers browser workflows and layouts, generation statistics, and a gen
 
 Playwright uses `http://127.0.0.1:5181` and starts a Vite server automatically, or reuses an existing server on that address outside CI. Keep that port free of unrelated servers.
 
+### Continuous Integration
+
+The [GitHub Actions workflow](.github/workflows/ci.yml) runs on every push and pull request. It can also be started manually from **Actions > CI > Run workflow** once the workflow is on the default branch.
+
+Two jobs run independently on Ubuntu with Node.js 22 and cached npm downloads:
+
+| Job                       | Checks and artifacts                                                                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lint and build**        | Installs locked dependencies with `npm ci`, runs ESLint and the TypeScript/Vite build, and uploads `frontend-dist` for 7 days.                                                                          |
+| **Browser and API tests** | Installs Chromium and its system dependencies, runs the full Playwright suite, and uploads `playwright-results` for 14 days, including HTML/JUnit reports and available failure screenshots and traces. |
+
+Open a workflow run in GitHub Actions to inspect job logs and download its artifacts. Tests use mocked or local fake APIs, so no GPU, AUTOMATIC1111 instance, or repository secrets are required. A newer run cancels an older in-progress run for the same branch or pull request.
+
+The `frontend-dist` artifact contains only the built frontend. This workflow does not deploy the application; the local API still requires the development server described below.
+
 ### Production Preview and Limitations
 
 ```bash
@@ -134,6 +149,7 @@ The local API can modify project files and initiate generation. Keep the server 
 
 ```text
 .
+|-- .github/workflows/ci.yml # GitHub Actions checks and test reports
 |-- data/                    # Persistent categories, settings, and presets
 |-- dev-server/              # Local APIs and AUTOMATIC1111 integration
 |-- docs/                    # Design notes and project documentation
