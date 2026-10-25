@@ -1,0 +1,144 @@
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+
+:root {
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #eef0f1;
+  --text: #464c53;
+  --text-h: #202327;
+  --text-muted: #626b75;
+  --border: #d5dadd;
+  --control-border: #87919a;
+  --accent: #0f766e;
+  --accent-strong: #115e59;
+  --accent-soft: #e0f2ef;
+  --on-accent: #ffffff;
+  --success: #157347;
+  --warning: #925b08;
+  --danger: #b42332;
+  --shadow: 0 16px 48px #15191e26;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --heading: var(--sans);
+
+  font: 14px/1.5 var(--sans);
+  letter-spacing: 0;
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='dark'] {
+  --bg: #141618;
+  --surface: #1d2023;
+  --surface-raised: #25292d;
+  --surface-muted: #181b1e;
+  --text: #c4c9ce;
+  --text-h: #e8eaed;
+  --text-muted: #a0a8b1;
+  --border: #3d444b;
+  --control-border: #66717c;
+  --accent: #5eead4;
+  --accent-strong: #99f6e4;
+  --accent-soft: #203c38;
+  --on-accent: #12312c;
+  --success: #7ddca4;
+  --warning: #f5bf62;
+  --danger: #ff9ba5;
+  --shadow: 0 16px 48px #00000066;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100svh;
+  background: var(--bg);
+}
+
+#root {
+  min-height: 100svh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-family: var(--heading);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 20px;
+}
+h2 {
+  font-size: 18px;
+}
+h3 {
+  font-size: 15px;
+}
+p {
+  margin: 0;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: 0;
+}
+button {
+  color: inherit;
+}
+button:not(:disabled),
+summary {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+svg {
+  flex-shrink: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-h);
+}
+[hidden] {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

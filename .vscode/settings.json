@@ -12,5 +12,8 @@
   },
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "chat.tools.terminal.autoApprove": {
+    "npx vite": true
   }
 }
