@@ -148,16 +148,16 @@ Review the eight PNGs in `test-results/ui-documentation-screenshots/`, then copy
 
 The [GitHub Actions workflow](.github/workflows/ci.yml) runs on every push and pull request. It can also be started manually from **Actions > CI > Run workflow** once the workflow is on the default branch.
 
-Two jobs run independently on Ubuntu 24.04 with Node.js 22 and cached npm downloads. The Ubuntu version is pinned to avoid automatic operating-system migrations. Artifact uploads use `actions/upload-artifact@v7`, which runs on Node.js 24 independently of the application's Node.js version.
+Both jobs run on **Ubuntu 24.04** (`ubuntu-24.04`) and **Windows Server 2025** (`windows-2025`), producing four independent job executions with Node.js 22 and cached npm downloads. Runner versions are pinned to avoid automatic operating-system migrations. Matrix fail-fast is disabled, so a failure on one platform does not cancel the other platform's checks. Artifact uploads use `actions/upload-artifact@v7`, which runs on Node.js 24 independently of the application's Node.js version.
 
-| Job                       | Checks and artifacts                                                                                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Lint and build**        | Installs locked dependencies with `npm ci`, runs ESLint and the TypeScript/Vite build, and uploads `frontend-dist` for 7 days.                                                                          |
-| **Browser and API tests** | Installs Chromium and its system dependencies, runs the full Playwright suite, and uploads `playwright-results` for 14 days, including HTML/JUnit reports and available failure screenshots and traces. |
+| Job                       | Checks and artifacts                                                                                                                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Lint and build**        | On each OS: installs locked dependencies with `npm ci`, runs ESLint and the TypeScript/Vite build, and uploads `frontend-dist-<runner>` for 7 days.                                                                                              |
+| **Browser and API tests** | On each OS: installs Chromium (including Linux system dependencies on Ubuntu), runs the full Playwright suite, and uploads `playwright-results-<runner>` for 14 days, including HTML/JUnit reports and available failure screenshots and traces. |
 
 Open a workflow run in GitHub Actions to inspect job logs and download its artifacts. Tests use mocked or local fake APIs, so no GPU, AUTOMATIC1111 instance, or repository secrets are required. A newer run cancels an older in-progress run for the same branch or pull request.
 
-The `frontend-dist` artifact contains only the built frontend. This workflow does not deploy the application; the local API still requires the development server described below.
+Artifact names include the runner label to prevent collisions, for example `frontend-dist-windows-2025` and `playwright-results-ubuntu-24.04`. Each `frontend-dist-<runner>` artifact contains only the built frontend. This workflow does not deploy the application; the local API still requires the development server described below.
 
 ### Production Preview and Limitations
 
