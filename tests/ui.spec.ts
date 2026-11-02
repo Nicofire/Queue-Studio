@@ -332,6 +332,194 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
+test('documentation screenshots', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const illustrations = await page.evaluate(() => {
+    const palettes = [
+      ['#b8e0ec', '#789caa', '#416d80', '#28525c', '#d2e8de'],
+      ['#d3e5cf', '#86aa8a', '#507b67', '#2c594c', '#e7dfbc'],
+      ['#cee8ee', '#94b0bc', '#597a91', '#375d76', '#f0e2c6'],
+      ['#f5dfb8', '#d9b780', '#c4926e', '#9d6d53', '#f3e7d0'],
+      ['#ddebc9', '#acc496', '#799f77', '#517b62', '#f0e9ce'],
+    ];
+    return palettes.map((colors, index) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = colors[0];
+      context.fillRect(0, 0, 640, 480);
+      context.fillStyle = '#fff4d6';
+      context.beginPath();
+      context.arc(480 - index * 24, 94, 34, 0, Math.PI * 2);
+      context.fill();
+      for (let layer = 0; layer < 3; layer += 1) {
+        context.fillStyle = colors[layer + 1];
+        context.beginPath();
+        context.moveTo(0, 480);
+        context.lineTo(0, 250 + layer * 50);
+        for (let peak = 0; peak < 6; peak += 1) {
+          context.lineTo(
+            peak * 150 + index * 12 - 90,
+            120 + layer * 65 + ((peak + index) % 2) * 90
+          );
+        }
+        context.lineTo(640, 480);
+        context.closePath();
+        context.fill();
+      }
+      context.fillStyle = colors[4];
+      context.beginPath();
+      context.moveTo(280, 330);
+      context.bezierCurveTo(560, 350, 80, 410, 500, 480);
+      context.lineTo(180, 480);
+      context.bezierCurveTo(40, 400, 460, 360, 280, 330);
+      context.fill();
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+  });
+  const landscapeNames = [
+    'Alpine lake',
+    'Forest trail',
+    'Coastal cliffs',
+    'Desert dunes',
+    'Rolling hills',
+  ];
+  const categories: CategoryDefinition[] = [
+    {
+      id: 'landscapes',
+      title: 'Landscapes',
+      placeId: 0,
+      templates: landscapeNames.map((name, index) => ({
+        ...entry(name, index === 0 || index === 2),
+        data: {
+          ...entry(name).data,
+          positive_prompt: `${name.toLowerCase()}, wide landscape, intricate detail, natural colors`,
+          negative_prompt: 'blur, artifacts, watermark',
+          favorite: index === 0 || index === 2,
+          image_path: `/documentation-preview-${index}.png`,
+        },
+      })),
+    },
+    {
+      id: 'lighting',
+      title: 'Lighting',
+      placeId: 1,
+      templates: [entry('Golden hour', true), entry('Soft daylight'), entry('Blue hour')],
+    },
+    {
+      id: 'styles',
+      title: 'Styles',
+      placeId: 2,
+      templates: [
+        entry('Travel illustration', true),
+        entry('Watercolor'),
+        entry('Editorial photo'),
+      ],
+    },
+  ];
+  await page.route('**/documentation-preview-*.png', (route) => {
+    const index = Number(new URL(route.request().url()).pathname.match(/(\d+)\.png$/)![1]);
+    return route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from(illustrations[index], 'base64'),
+    });
+  });
+  await page.route('**/api/categories', (route) => route.fulfill({ json: { categories } }));
+  await page.route('**/api/generation/preview', (route) =>
+    route.fulfill({ json: { images: illustrations.slice(0, 4) } })
+  );
+  await page.reload();
+  await expect(page.getByRole('checkbox', { name: 'Alpine lake', exact: true })).toBeVisible();
+  for (const name of [
+    'Alpine lake',
+    'Coastal cliffs',
+    'Golden hour',
+    'Soft daylight',
+    'Travel illustration',
+  ]) {
+    await page.getByRole('checkbox', { name, exact: true }).check();
+  }
+  const capture = async (name: string) => {
+    await page.mouse.move(1438, 898);
+    await page.evaluate(async () => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      await document.fonts.ready;
+      const visibleImages = Array.from(document.images).filter((image) => {
+        const bounds = image.getBoundingClientRect();
+        return (
+          bounds.width > 0 && bounds.height > 0 && bounds.top < innerHeight && bounds.bottom > 0
+        );
+      });
+      await Promise.all(visibleImages.map((image) => image.decode()));
+    });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+      false
+    );
+    await page.screenshot({ path: testInfo.outputPath(name), animations: 'disabled' });
+  };
+  await capture('library-list-light.png');
+  await page.getByRole('button', { name: 'Tile view', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Deselect Alpine lake', exact: true })
+  ).toBeVisible();
+  await capture('library-tiles-light.png');
+  await page
+    .getByRole('button', { name: 'Edit Alpine lake', exact: true })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole('button', { name: 'Generate 4', exact: true }).click();
+  await expect(page.locator('.entry-generated-tile')).toHaveCount(4);
+  await page.getByRole('button', { name: 'Select preview 2', exact: true }).click();
+  await expect(page.locator('.entry-generated-tile[aria-pressed="true"]')).toHaveCount(1);
+  await capture('entry-editor-light.png');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await capture('library-tiles-dark.png');
+  await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Connection & generation', exact: true })
+  ).toBeVisible();
+  await capture('settings-connection-light.png');
+  await page.getByRole('button', { name: 'Prompt presets', exact: true }).click();
+  await page.locator('summary').filter({ hasText: 'Effective prompt' }).click();
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await capture('settings-presets-light.png');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole('button', { name: 'Appearance', exact: true }).click();
+  await capture('settings-appearance-light.png');
+  const snapshot: GenerationStatusResponse = {
+    status: 'running',
+    queueLength: 4,
+    queuePreview: landscapeNames.slice(1, 5).map((name, index) => ({
+      id: `documentation-job-${index}`,
+      summary: `Landscapes: ${name} | Lighting: Golden hour | Styles: Travel illustration`,
+    })),
+    activeJobLabel:
+      'Landscapes: Alpine lake | Lighting: Soft daylight | Styles: Travel illustration',
+    runCompleted: 3,
+    runTotal: 8,
+    lastError: null,
+    statistics: {
+      generatedImages: 3,
+      averageSecondsPerImage: 12.5,
+      lastSecondsPerImage: 11.8,
+      activeJobSeconds: 4,
+      estimatedRemainingSeconds: 58.5,
+    },
+  };
+  await page.route('**/api/generation/status', (route) => route.fulfill({ json: snapshot }));
+  await page.getByRole('button', { name: 'Queue', exact: true }).click();
+  await expect(page.locator('.queue-run-summary h3')).toHaveText('running');
+  await expect(
+    page.locator('.queue-statistics').getByText('12.5 s', { exact: true })
+  ).toBeVisible();
+  await capture('queue-running-light.png');
+});
+
 test('selection, search and filters survive navigation', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Search all categories' }).fill('Aster');
   await page.getByRole('checkbox', { name: 'Aster', exact: true }).check();

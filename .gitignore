@@ -30,3 +30,5 @@ output
 
 /test-results/
 /playwright-report/
+
+temp/

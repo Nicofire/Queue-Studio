@@ -7,12 +7,21 @@
 <h1 align="center">Queue Studio</h1>
 
 <p align="center">
+<a href="https://github.com/Nicofire/Stable-Diffusion-Queue-Manager-V2/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Nicofire/Stable-Diffusion-Queue-Manager-V2/ci.yml?style=flat&amp;label=CI" alt="CI workflow status" /></a>
+<a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20.19%2B%20%2F%2022.12%2B-5FA04E?style=flat&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 20.19+ in the 20.x line, or 22.12+" /></a>
+<a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-149ECA?style=flat&amp;logo=react&amp;logoColor=white" alt="React 19" /></a>
+<a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-6-3178C6?style=flat&amp;logo=typescript&amp;logoColor=white" alt="TypeScript 6" /></a>
+<a href="https://vite.dev/"><img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat&amp;logo=vite&amp;logoColor=white" alt="Vite 8" /></a>
+</p>
+
+<p align="center">
 <strong>Your prompt library, generation queue, and AUTOMATIC1111 workspace.</strong><br />
 Compose prompts, organize entries, and manage Stable Diffusion generations locally.
 </p>
 
 <p align="center">
 <a href="#quick-start">Quick Start</a> &middot;
+<a href="docs/wiki/README.md">User Wiki</a> &middot;
 <a href="#features">Features</a> &middot;
 <a href="#data-and-persistence">Your Data</a> &middot;
 <a href="#development">Development</a>
@@ -23,6 +32,12 @@ Compose prompts, organize entries, and manage Stable Diffusion generations local
 ---
 
 > **Local-first.** Queue Studio manages your library, jobs, previews, and output. Image generation runs in your separate AUTOMATIC1111 WebUI instance.
+
+![Queue Studio Library in tile view with landscape previews, selected entries, and generation controls](docs/screenshots/library-tiles-light.png)
+
+Actual application UI with neutral demo data and original illustrative thumbnails. Generation in the documentation screenshots is simulated; these are not examples of model output.
+
+Explore the **[User Wiki](docs/wiki/README.md)** for illustrated guides to npm every page, entry previews, image import, queue controls, and settings.
 
 ## Features
 
@@ -117,6 +132,18 @@ The suite covers browser workflows and layouts, generation statistics, and a gen
 
 Playwright uses `http://127.0.0.1:5181` and starts a Vite server automatically, or reuses an existing server on that address outside CI. Keep that port free of unrelated servers.
 
+### Refresh Documentation Screenshots
+
+After installing Playwright's Chromium browser as described above, run the focused capture scenario:
+
+```bash
+npm run test:ui -- tests/ui.spec.ts --grep "documentation screenshots"
+```
+
+It renders the real UI with isolated API mocks and original PNG illustrations; it does not use your library, change project settings, or call AUTOMATIC1111. Captures use a 1440x900 desktop viewport, with a taller 1440x1100 viewport for the complete presets section.
+
+Review the eight PNGs in `test-results/ui-documentation-screenshots/`, then copy the approved images to [docs/screenshots/](docs/screenshots/) using the same filenames. Keep the demo-data captions accurate when updating the [wiki](docs/wiki/README.md). Only curated images belong in the repository; do not commit `test-results/` or `playwright-report/`.
+
 ### Continuous Integration
 
 The [GitHub Actions workflow](.github/workflows/ci.yml) runs on every push and pull request. It can also be started manually from **Actions > CI > Run workflow** once the workflow is on the default branch.
@@ -152,7 +179,9 @@ The local API can modify project files and initiate generation. Keep the server 
 |-- .github/workflows/ci.yml # GitHub Actions checks and test reports
 |-- data/                    # Persistent categories, settings, and presets
 |-- dev-server/              # Local APIs and AUTOMATIC1111 integration
-|-- docs/                    # Design notes and project documentation
+|-- docs/
+|   |-- screenshots/         # Curated application screenshots with demo data
+|   `-- wiki/                # Illustrated user guides
 |-- output/                  # Generated queue images by date
 |-- public/                  # Favicon, default JSON files, and library assets
 |-- src/
