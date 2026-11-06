@@ -41,6 +41,26 @@ const mapImagePath = (imagePath: string) => {
   return imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
 };
 
+const sanitizeImageSrc = (src: string) => {
+  if (!src) {
+    return '';
+  }
+
+  if (src.startsWith('blob:')) {
+    return src;
+  }
+
+  if (src.startsWith('data:image/')) {
+    return src;
+  }
+
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('/')) {
+    return src;
+  }
+
+  return '';
+};
+
 export function CategoryEntryModal({
   mode,
   categoryTitle,
@@ -123,9 +143,11 @@ export function CategoryEntryModal({
   const hasGeneratedGrid = generatedImages.length > 0;
   const selectedGeneratedImage =
     selectedGeneratedIndex !== null ? generatedImages[selectedGeneratedIndex] : undefined;
-  const previewSrc = selectedGeneratedImage
-    ? `data:image/png;base64,${selectedGeneratedImage}`
-    : selectedImagePreview || (removeExistingImage ? '' : existingImageSrc);
+  const previewSrc = sanitizeImageSrc(
+    selectedGeneratedImage
+      ? `data:image/png;base64,${selectedGeneratedImage}`
+      : selectedImagePreview || (removeExistingImage ? '' : existingImageSrc)
+  );
 
   const hasImage = hasGeneratedGrid || Boolean(previewSrc);
 
